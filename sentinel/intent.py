@@ -37,12 +37,16 @@ def redact_secrets(text: str) -> tuple[str, bool]:
     )
     new = re.sub(
         r"(?i)\b((?:liara_api_token|sentinel_access_key|openai_api_key|api[_-]?key|"
-        r"secret[_-]?key|password|authorization)\s*[:=]\s*)"
+        r"secret[_-]?key|password|authorization)(?:['\"])?\s*[:=]\s*)"
         r"(['\"]?)[^\s'\";,]{8,}\2",
         r"\1[REDACTED]", new
     )
     new = re.sub(r"\b(?:sk-[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9_]{16,})\b",
                  "[REDACTED]", new)
+    new = re.sub(
+        r"\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{8,}\b",
+        "[REDACTED]", new
+    )
     # Exact redaction of an operator key is handled in the service layer too.
     return new, new != text
 
