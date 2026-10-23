@@ -170,14 +170,15 @@ function ToolCard({ui,onApproval,onProject,onAction,token,project,mode,resolved,
 async function parseStream(response:Response,onEvent:(event:string,data:any)=>void) {
   if(!response.ok){let json:any={};try{json=await response.json()}catch{}throw parseError(response,json);}
   if(!response.body)throw new Error('پاسخ جریانی در دسترس نیست.');
-  const reader=response.body.getReader();const decoder=new TextDecoder();let buffer='';
+  const reader=response.body.getReader();const decoder=new TextDecoder();let buffer='';let complete=false;
   while(true){const {done,value}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true}).replace(/\r\n/g,'\n');
     let sep;while((sep=buffer.indexOf('\n\n'))!==-1){const entry=buffer.slice(0,sep);buffer=buffer.slice(sep+2);
       const ev=entry.split('\n').find(x=>x.startsWith('event:'))?.slice(6).trim()||'message';
       const dat=entry.split('\n').filter(x=>x.startsWith('data:')).map(x=>x.slice(5).trim()).join('\n');
-      if(dat)onEvent(ev,JSON.parse(dat));
+      if(dat){const message=JSON.parse(dat);onEvent(ev,message);if(ev==='complete')complete=true;}
     }
   }
+  if(!complete)throw new Error('ارتباط پیش از دریافت نتیجه نهایی قطع شد. ممکن است پاسخ در تاریخچه سرور ثبت شده باشد؛ پیش از تکرار، تاریخچه را بررسی کنید.');
 }
 export default function App() {
   const [messages,setMessages] = useState<ChatItem[]>([]);
@@ -223,7 +224,7 @@ export default function App() {
           void refreshThreads();
         }
       });
-    }catch(e:any){setError(e.message);setMessages(old=>[...old,{id:uid(),role:'assistant',content:'درخواست کامل نشد. '+e.message,ui:{type:'error',text:e.message},at:Date.now()/1000}]);}
+    }catch(e:any){setError(e.message || 'پاسخ کامل دریافت نشد؛ ممکن است نتیجه در تاریخچه ثبت شده باشد.');void refreshThreads();}
     finally{setRunning(false);setStatus('');}
   },[running,headers,threadId,mode,project,scenario,refreshThreads]);
   const onNew = useCallback(async(message:AppendMessage)=>{
