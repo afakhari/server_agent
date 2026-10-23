@@ -10,7 +10,7 @@ const examples = ['سایتم خطای ۵۰۰ می‌دهد', 'پروژه‌ام
 const intentNames:Record<string,string> = {
   incident:'عیب‌یابی', restart:'بررسی پیش از راه‌اندازی مجدد', health:'سلامت سرویس',
   deploy:'آماده‌سازی انتشار', projects:'فهرست برنامه‌ها', releases:'تاریخچه انتشار',
-  domains:'دامنه و SSL', billing:'هزینه و پلن', security:'امنیت و مجوز',
+  domains:'دامنه و SSL', domain_setup:'راهنمای اتصال دامنه', billing:'هزینه و پلن', security:'امنیت و مجوز',
   env:'تنظیمات محیطی', database:'راهنمای دیتابیس', backup:'پشتیبان‌گیری',
   team:'حساب تیمی', support:'پشتیبانی', notifications:'هشدارها',
   greeting:'شروع گفتگو', help:'راهنما', explain:'توضیح بدون اجرا',
