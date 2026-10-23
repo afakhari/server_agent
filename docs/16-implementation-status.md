@@ -29,3 +29,13 @@
 - CLI identity با JSON whoami و API `/v1/me` بررسی می‌شود؛ تیم فعال و تنظیمات team override از بسته رد می‌شود.
 - راهنمای کامل صاحب پروژه در `docs/18-operator-steps-fa.md` قرار دارد.
 - آزمون‌های جدید نوشته شده‌اند؛ هنوز آزمون زنده با حساب لیارا و اجرای مجدد کل تست‌های repository در این تغییر انجام نشده است.
+
+
+## افزوده‌شده در شاخه Conversational Agent · 2026-10-23
+
+- طراحی React/assistant-ui تمام‌صفحه و RTL به `frontend/` اضافه شد؛ requires npm install/build، مرورگر **آزمون نشده**.
+- `sentinel/conversation.py`: SQLite conversation history، context per project، LangGraph conditional workflow، SQLite checkpoint، interrupt برای approval، LangChain intent classifier اختیاری.
+- API گفت‌وگو/فهرست/stream/approval افزوده شد؛ استفاده از policy/one-use approval قبلی حفظ شده است.
+- کارت‌های تشخیص، شواهد، استقرار، تأیید و وضعیت اجرا به frontend اضافه شدند؛ streaming فعلاً رویداد وضعیت و پایان است، نه delta متن.
+- آزمون‌های `tests/test_conversation.py` نوشته شده‌اند؛ **هنوز در محیط ادغام با پکیج‌های LangGraph و Node اجرا نشده‌اند**.
+- حساب واقعی لیارا، قیمت/پلن واقعی، پایش چندمرحله‌ای و release-ready verification هنوز LIVE_UNVERIFIED هستند. محصولات production multi-user و coding agent خارج از این vertical slice هستند.
