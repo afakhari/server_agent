@@ -102,3 +102,14 @@ cd frontend && npm ci && npm run build
 - Clustering فقط آفلاین و برای نمونه‌های دارای رضایت است، نه روی کل تاریخچه مخفی کاربران.
 - classifier جدید هنوز در محیط واقعی Liara یا مرورگر/runner سبز اثبات نشده است. **ادغام PR #26 تا رفع release gates توصیه نمی‌شود.**
 - ریسک‌های مسیر VPS و احراز هویت عمومی در `docs/22-release-readiness-audit.md` باقی‌اند.
+
+ 
+## ۷. اجرای Clustering فقط روی نمونه‌های مجاز
+
+```bash
+python scripts/review_intents.py --demo
+# Only on a redacted, manually curated and consented JSON array:
+python scripts/review_intents.py --consented-input consented-curated.json --acknowledge-consent
+```
+
+این دستور **هیچ پیام کاربر را از SQLite یا Log نمی‌خواند**؛ خروجی صرفاً شمارش و عبارت‌های نمونه برای بازبینی انسانی است. فایل‌های حاوی پیام واقعی خصوصی را در Git commit نکنید. برای نسخه عملیاتی، opt-in، retention، pseudonymization و DLP جداگانه لازم است.
