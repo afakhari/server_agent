@@ -5,7 +5,7 @@ import { Activity, ArrowUp, BookOpen, CheckCircle2, ChevronDown, CircleAlert, Cl
 
 type UIPayload = { type?: string; [key: string]: any };
 type ChatItem = { id: string; role: 'user'|'assistant'; content: string; ui?: UIPayload; at: number };
-type Thread = { id: string; project?: string; mode: string; updated_at: number };
+type Thread = { id: string; project?: string; mode: string; updated_at: number; title?: string };
 const examples = ['سایتم خطای ۵۰۰ می‌دهد', 'پروژه‌ام را روی لیارا منتشر کن', 'فهرست برنامه‌های حساب'];
 const uid = () => crypto.randomUUID();
 function parseError(response: Response, data: any) {
@@ -195,7 +195,7 @@ export default function App() {
         <button className="newchat" onClick={reset}><Plus size={18}/> گفت‌وگوی جدید</button>
         <div className="sidebarlabel"><History size={15}/> گفت‌وگوهای اخیر</div>
         <div className="threadlist">{threads.map(t=><button key={t.id} className={'threadbutton '+(t.id===threadId?'selected':'')} onClick={()=>void loadThread(t.id).catch(e=>setError(e.message))}>
-          <span>{t.project || 'گفت‌وگو بدون پروژه'}</span><small dir="ltr">{new Date(t.updated_at*1000).toLocaleDateString('fa-IR')}</small>
+          <span>{t.title || t.project || 'گفت‌وگو بدون پروژه'}</span><small dir="ltr">{new Date(t.updated_at*1000).toLocaleDateString('fa-IR')}</small>
         </button>)}</div>
         <div className="sidebarbottom"><ShieldCheck size={15}/> عملیات حساس فقط با تأیید شما</div>
       </aside>
@@ -206,8 +206,8 @@ export default function App() {
         </header>
         <div className="utilitybar">
           <label><Server size={15}/> شناسه پروژه<input value={project} onChange={e=>setProject(e.target.value)} placeholder="نام پروژه در لیارا" dir="ltr"/></label>
-          {mode==='demo'?<label>سناریو<select value={scenario} onChange={e=>setScenario(e.target.value)}><option value="transient">خرابی فرایند</option><option value="env">متغیر محیطی</option><option value="memory">کمبود حافظه</option><option value="release">خطای انتشار</option><option value="healthy">سالم</option></select></label>:
-          <label className="access"><KeyRound size={15}/><input type="password" autoComplete="off" value={token} onChange={e=>setToken(e.target.value)} placeholder="کلید دسترسی Sentinel (نه توکن لیارا)" aria-label="کلید دسترسی Sentinel"/></label>}
+          {mode==='demo' && <label>سناریو<select value={scenario} onChange={e=>setScenario(e.target.value)}><option value="transient">خرابی فرایند</option><option value="env">متغیر محیطی</option><option value="memory">کمبود حافظه</option><option value="release">خطای انتشار</option><option value="healthy">سالم</option></select></label>}
+          <label className="access"><KeyRound size={15}/><input type="password" autoComplete="off" value={token} onChange={e=>setToken(e.target.value)} placeholder="کلید Sentinel در صورت فعال بودن حفاظت" aria-label="کلید دسترسی Sentinel"/></label>
           <button className="iconbutton" onClick={()=>void refreshThreads()} title="بروزرسانی تاریخچه"><RefreshCcw size={16}/></button>
         </div>
         <div className="chatregion">
