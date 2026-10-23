@@ -58,6 +58,7 @@ function DeployCard({data,token,activeProject,mode}:{data:UIPayload;token:string
   const [scan,setScan] = useState<any>(data.scout || null);
   const [confirmation,setConfirmation] = useState('');
   const [result,setResult] = useState<any>(null);
+  const [verification,setVerification] = useState<any>(null);
   const [error,setError] = useState('');
   const [busy,setBusy] = useState(false);
   const api = async (url:string,body:any) => {
@@ -91,7 +92,10 @@ function DeployCard({data,token,activeProject,mode}:{data:UIPayload;token:string
       <label>برای تأیید، نام پروژه را وارد کنید<input dir="ltr" value={confirmation} onChange={e=>setConfirmation(e.target.value)} /></label>
       <button className="primary" disabled={busy||confirmation!==plan.project} onClick={()=>run(()=>api('/api/deploy/execute',{proposal_id:plan.proposal_id,confirm_project:plan.project}),setResult)}>تأیید و ارسال انتشار</button>
     </div>}
-    {result && <div className="finding"><b>نتیجه ارسال:</b> {JSON.stringify(result)}<p>ارسال انتشار به معنی سلامت تأییدشده نیست. بعد از آن وضعیت انتشار و پروب سلامت را بررسی کنید.</p></div>}
+    {result && <div className="finding"><b>نتیجه ارسال:</b> {JSON.stringify(result)}<p>ارسال انتشار به معنی سلامت تأییدشده نیست.</p>
+      <button className="secondary" disabled={busy} onClick={()=>run(async()=>{const r=await fetch('/api/deploy/status/'+encodeURIComponent(project),{headers:{'X-Sentinel-Access-Key':token}});const v=await r.json();if(!r.ok)throw parseError(r,v);return v;},setVerification)}>بررسی مستقل وضعیت انتشار</button>
+    </div>}
+    {verification && <div className="finding"><b>نتیجه مشاهده:</b> {verification.judgment}<p>وضعیت سرویس: {verification.app_status||'نامشخص'} · پروب سلامت: {verification.health_observation?.status||'نامشخص'}</p><small>{verification.note}</small></div>}
     {error && <div role="alert" className="caution">{error}</div>}
   </div>;
 }
@@ -137,7 +141,7 @@ export default function App() {
   const [token,setToken] = useState('');
   const [running,setRunning] = useState(false);
   const [status,setStatus] = useState('');
-  const [sideOpen,setSideOpen] = useState(true);
+  const [sideOpen,setSideOpen] = useState(()=>window.innerWidth>850);
   const [error,setError] = useState('');
   const [engine,setEngine] = useState('');
   const headers = useMemo(()=>({'Content-Type':'application/json','X-Sentinel-Access-Key':token}),[token]);
