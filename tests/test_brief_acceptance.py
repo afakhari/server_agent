@@ -161,3 +161,47 @@ def test_raw_metric_objects_not_exposed_as_untrusted_serialized_text():
     report = diagnose(snapshot)
     assert not any(row["kind"] == "metric_raw" for row in report["evidence"])
     assert "SENSITIVEEXAMPLE" not in str(report)
+
+
+def test_incident_priority_over_plan_question():
+    result = classify("سایتم خطای 500 می‌دهد، آیا باید پلن مناسب‌تری بگیرم؟")
+    assert result.intent == "incident"
+    assert result.route == "inspect"
+
+
+def test_legacy_inspect_does_not_offer_live_write_on_private_vps(monkeypatch):
+    from starlette.requests import Request
+
+    monkeypatch.setenv("SENTINEL_EXPOSURE_MODE", "private-server")
+    monkeypatch.setenv("SENTINEL_ALLOW_LIVE_WRITES", "true")
+    monkeypatch.setenv("SENTINEL_ALLOWED_PROJECTS", "demo-shop")
+    monkeypatch.setenv("SENTINEL_ACCESS_KEY", "a" * 48)
+    monkeypatch.setenv("LIARA_API_TOKEN", "fake-test-only")
+    monkeypatch.setattr(app, "credentials", lambda request, mode: "operator")
+    monkeypatch.setattr(app, "create_approval",
+                        lambda *args: (_ for _ in ()).throw(AssertionError("must not grant approval")))
+
+    class FakeClient:
+        def __enter__(self):
+            return self
+        def __exit__(self, *_):
+            pass
+        def snapshot(self, project):
+            assert project == "demo-shop"
+            snapshot = mock_snapshot("transient")
+            snapshot["mode"] = "live"
+            return snapshot
+
+    monkeypatch.setattr(app, "LiaraClient", FakeClient)
+    request = Request({"type": "http", "method": "POST",
+                       "path": "/api/inspect", "headers": []})
+    result = app.inspect(request, app.InspectRequest(
+        mode="live", project="demo-shop"))
+    assert not result["proposals"]
+    assert any("عملیات" in x for x in result["limitations"])
+
+
+def test_unknown_database_does_not_become_false_confirmation():
+    result = assess(fixture_scan(), AssessmentInput(
+        needs_database=None, traffic="unknown"))
+    assert any("دیتابیس" in warning for warning in result["warnings"])
