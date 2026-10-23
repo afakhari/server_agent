@@ -223,12 +223,13 @@ def inspect_node(state: AgentState) -> dict:
 def deploy_node(state: AgentState) -> dict:
     request_new = bool(re.search(r"ساخت پروژه|ساخت برنامه|ایجاد پروژه", state["text"].lower()))
     suggested_backend = "api" if request_new else "api-existing"
+    sizing_only = (state.get("decision") or {}).get("intent") == "capacity"
     if state["mode"] == "demo":
         demo = inspect_repo(ROOT / "examples" / "fastapi-shop")
-        return {"answer": "می‌توانیم روند آماده‌سازی استقرار را با پروژه نمونه ببینیم. در حالت نمایشی هیچ پروژه‌ای ساخته یا منتشر نمی‌شود.",
+        return {"answer": ("برای انتخاب پلن، اول مشخصات سورس و ترافیک را ارزیابی می‌کنیم؛ در Demo هزینه یا عملیات واقعی نداریم." if sizing_only else "می‌توانیم روند آماده‌سازی استقرار را با پروژه نمونه ببینیم. در حالت نمایشی هیچ پروژه‌ای ساخته یا منتشر نمی‌شود."),
                 "ui": {"type": "deploy", "mode": "demo", "scout": demo,
                        "project": state.get("project") or "demo-shop", "backend": suggested_backend}}
-    return {"answer": "برای انتشار باید سورس مجاز، شناسه برنامه و مشخصات پلتفرم معلوم باشند. پیش‌نمایش و تأیید دقیق الزامی‌اند؛ اجرای زنده فقط در محیطی ممکن است که اجازه صریح سرور داشته باشد.",
+    return {"answer": ("برای پیشنهاد منابع و پلن سازگار، ابتدا نیازهای ترافیکی و سورس مجاز را ارزیابی می‌کنیم. شناسه پلن و قیمت باید در پنل واقعی تأیید شوند؛ هیچ خرید یا انتشاری انجام نمی‌شود." if sizing_only else "برای انتشار باید سورس مجاز، شناسه برنامه و مشخصات پلتفرم معلوم باشند. پیش‌نمایش و تأیید دقیق الزامی‌اند؛ اجرای زنده فقط در محیطی ممکن است که اجازه صریح سرور داشته باشد."),
             "ui": {"type": "deploy", "mode": "live", "project": state.get("project") or "", "backend": suggested_backend}}
 
 
