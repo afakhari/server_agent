@@ -16,6 +16,7 @@ import tarfile
 import time
 
 from sentinel.liara import LiaraClient, LiaraError, validate_name
+from sentinel.package_safety import suspicious_source
 from sentinel.scout import inspect_repo, repo_from_workspace
 from sentinel.security import connection, session
 
@@ -73,9 +74,16 @@ def safe_tree(folder: Path) -> tuple[bytes, str, list[str]]:
                     total += size
                     if total > MAX_ARCHIVE:
                         raise DeployError('حجم بسته بیش از حد مجاز است')
-                    contents = path.read_bytes()
-                    if b'-----BEGIN PRIVATE KEY-----' in contents or b'-----BEGIN OPENSSH PRIVATE KEY-----' in contents:
-                        raise DeployError('کلید خصوصی در سورس پیدا شد؛ بسته ارسال نمی‌شود')
+                    # Read at most the remaining package allowance even when a
+                    # file changes after stat() due to a local race.
+                    with path.open('rb') as stream:
+                        contents = stream.read(MAX_ARCHIVE - (total - size) + 1)
+                    if len(contents) != size or len(contents) + total - size > MAX_ARCHIVE:
+                        raise DeployError('حجم یا محتوا هنگام ساخت بسته تغییر کرده است')
+                    reason = suspicious_source(relative.as_posix(), contents)
+                    if reason:
+                        raise DeployError('فایل ' + relative.as_posix()
+                                          + ' برای انتشار ایمن نیست: ' + reason)
                     info = tarfile.TarInfo(relative.as_posix())
                     info.size, info.mtime, info.mode = len(contents), 0, 0o644
                     archive.addfile(info, io.BytesIO(contents))
