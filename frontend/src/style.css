@@ -19,3 +19,6 @@
 .toolcard .secondarytext{line-height:1.8}
 .toolcard .secondarytext svg{vertical-align:middle;margin-left:5px}
 @media(max-width:480px){.guideactions{display:grid;grid-template-columns:1fr}.guideactions button{width:100%}}
+
+.interpretation{display:inline-flex;align-items:center;flex-wrap:wrap;gap:6px;color:#93b8c6;border:1px solid #2c485a;background:#102537;font-size:11px;border-radius:9px;padding:5px 10px;margin:-2px 0 10px}
+.interpretation svg{color:#6ac7b9}
