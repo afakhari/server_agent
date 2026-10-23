@@ -1,5 +1,7 @@
 # Running the functional Liara Sentinel prototype
 
+> **نسخه مسابقه:** برای دیدن دمو هیچ بازدیدکننده‌ای نباید کلید یا رمز وارد کند. تنظیمات فعلی `compose.server.yaml` پراکسی `Caddyfile.competition` بدون Basic Auth دارد؛ داده‌ها و عملیات دمو شبیه‌سازی شده‌اند. کلید `SENTINEL_ACCESS_KEY` فقط برای راه‌اندازی امن سرور باقی می‌ماند. جزئیات: [docs/22-competition-demo.md](docs/22-competition-demo.md). دستورهای استقرار خصوصی پایین مربوط به حالت اپراتور هستند و نباید به‌عنوان تنظیم پیش‌فرض نسخه مسابقه استفاده شوند.
+
 **Maturity:** prior development reported local mock-tests (33 tests); newly added tests require a fresh local run before final submission; live read/write and real deployment remain **unverified**. Designed for **localhost and disposable test accounts**. Do not place on a public network or connect production projects.
 
 ## Install and run
