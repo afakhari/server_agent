@@ -423,6 +423,12 @@ def respond(actor: str, mode: str, text: str, thread_id: str | None = None,
         result = {"answer": "بررسی به دلیل خطای داخلی کامل نشد. هیچ نتیجه یا تشخیص تازه‌ای تأیید نشده است؛ پیش از تکرار عملیات حساس وضعیت را بررسی کنید.",
                   "ui": {"type": "error", "text": "نتیجه نامشخص است؛ اطلاعات محرمانه در این پیام نمایش داده نمی‌شود."},
                   "engine": "error"}
+    if isinstance(result.get("ui"), dict) and result["ui"].get("type") not in {"error", "execution"}:
+        choice = classify(safe_text)
+        result["ui"].setdefault("classification", {
+            "intent": choice.intent, "certainty": choice.certainty,
+            "labels": list(choice.labels),
+        })
     add_message(identifier, "assistant", result["answer"], result.get("ui"))
     if result.get("ui", {}).get("type") == "inspection":
         actual_project = result["ui"]["report"].get("project")
