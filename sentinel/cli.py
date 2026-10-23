@@ -33,6 +33,8 @@ def configured() -> bool:
 
 
 def cli_settings() -> tuple[str, str, Path]:
+    if os.getenv('LIARA_TEAM_ID'):
+        raise DeployError('استقرار CLI تیمی در این نسخه پشتیبانی نمی‌شود؛ برای تیم از API مستقیم استفاده کنید')
     if not configured():
         raise DeployError('استقرار CLI در این سرور غیرفعال است')
     binary = os.getenv('SENTINEL_CLI_BIN', '')

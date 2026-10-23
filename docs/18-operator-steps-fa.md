@@ -168,3 +168,6 @@ python scripts/run_local.py \
   نسخه **دستی** است، نه اجرای خودکار توسط Agent.
 
 مرجع نحوه انتشار Node.js: https://github.com/liara-cloud/docs/blob/master/src/pages/paas/nodejs/how-tos/deploy-app.mdx
+
+## هشدار: برنامه تیم با برنامه شخصی فرق دارد
+اگر پنل برنامه `sentinel-sandbox-01` را در فضای **تیم** نشان می‌دهد ولی API فهرست حساب شخصی برنامه دیگری را برمی‌گرداند، قبل از دیپلوی باید `teamID` همان تیم در درخواست‌های API تنظیم شود. راهنمای دقیق با Windows CMD و برنامه خواندنی: [docs/19-team-access.md](19-team-access.md). شناسه تیم در صفحه API همان تیم موجود است و توکن محرمانه محسوب نمی‌شود، اما جایگزین توکن هم نیست. از `python scripts\run_local.py --mode read --team-id YOUR_TEAM_ID --project YOUR_TEAM_APP_ID` شروع کن؛ تا خواندن صحیح برنامه، write را فعال نکن.

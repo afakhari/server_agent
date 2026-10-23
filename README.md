@@ -106,3 +106,6 @@ populates the matching platform and source path automatically for Node or Python
 Node packaging follows Liara's documented `package.json` start script.
 The API upload and release write paths remain live-unverified until tested
 against a disposable account. Inspect costs and preview before approval.
+
+## Team-owned Liara apps (critical for correct account context)
+When the Console shows an app under a **team** but the regular API returns a different personal app, use an explicit team ID from that team's API page. On Windows CMD run `python scripts\run_local.py --mode read --team-id YOUR_TEAM_ID --project YOUR_TEAM_APP_ID` using the server-side bearer token prompt. First verify only read access and the exact target/platform; do not enable writes until the list shows the expected team app. `LIARA_TEAM_ID` is automatically merged into all Liara GET/POST requests including source uploads. Team CLI subprocess mode is deliberately disabled. [Full Persian team runbook](docs/19-team-access.md).

@@ -91,3 +91,54 @@ def test_list_projects_returns_valid_project_id_names():
         result=client.list_projects()
     assert result['projects'][0]['project_id']=='real-test-app'
     assert 'SECRET' not in repr(result)
+
+
+def test_team_context_applies_to_all_reads_with_other_params(monkeypatch):
+    from sentinel.liara import LiaraClient
+    import httpx
+    urls = []
+    def handler(request):
+        urls.append(request.url)
+        if request.url.path.endswith('/logs'):
+            return httpx.Response(200, json=[])
+        if request.url.path.endswith('/releases'):
+            return httpx.Response(200, json={'releases': []})
+        return httpx.Response(200, json={'projects': []})
+    monkeypatch.setenv('LIARA_TEAM_ID', '0123456789abcdef01234567')
+    with LiaraClient(token='fake', transport=httpx.MockTransport(handler)) as client:
+        client.list_projects()
+        client.logs('example')
+        client.releases('example')
+    assert all(u.params.get('teamID') == '0123456789abcdef01234567' for u in urls)
+    assert urls[1].params.get('since')
+    assert urls[2].params.get('count') == '10'
+
+
+def test_team_scope_persists_into_direct_multipart_upload(monkeypatch):
+    from sentinel.liara import LiaraClient
+    import httpx
+    calls = []
+    def handler(request):
+        calls.append(request.url)
+        return httpx.Response(200, json={'sourceID': 'example'})
+    monkeypatch.setenv('LIARA_TEAM_ID', '0123456789abcdef01234567')
+    with LiaraClient(token='fake', transport=httpx.MockTransport(handler)) as client:
+        response=client.http.post('/v2/projects/example/sources',
+                                  files={'file': ('source.tar.gz', b'test')})
+    assert response.status_code == 200
+    assert calls[0].params.get('teamID') == '0123456789abcdef01234567'
+
+
+def test_personal_team_scope_absent_and_input_validation(monkeypatch):
+    from sentinel.liara import LiaraClient, LiaraError
+    import httpx
+    monkeypatch.delenv('LIARA_TEAM_ID', raising=False)
+    calls = []
+    def handler(request):
+        calls.append(request.url)
+        return httpx.Response(200, json={'projects': []})
+    with LiaraClient(token='fake', transport=httpx.MockTransport(handler)) as client:
+        client.list_projects()
+    assert 'teamID' not in calls[0].params
+    with pytest.raises(LiaraError):
+        LiaraClient(token='fake', team_id='../unsafe')

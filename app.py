@@ -98,6 +98,7 @@ def config():
     return {'live_read_enabled': bool(os.getenv('LIARA_API_TOKEN')) and len(os.getenv('SENTINEL_ACCESS_KEY','')) >= 24,
             'live_write_enabled': False,  # Per-project gates are checked on every operation, never advertise globally.
             'auth_required': bool(os.getenv('SENTINEL_ACCESS_KEY')),
+            'liara_scope': 'team' if os.getenv('LIARA_TEAM_ID') else 'personal',
             'model': 'evidence-first rules + optional advisory LLM',
             'warning': 'نسخه آزمایشی؛ برای محیط عمومی و چندکاربره آماده نیست'}
 

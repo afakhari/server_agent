@@ -54,6 +54,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run Liara Sentinel on localhost safely")
     parser.add_argument("--mode", choices=["demo", "read", "test-cli", "test-api"], default="demo")
     parser.add_argument("--project", help="Exact, disposable, budget-limited Liara test app")
+    parser.add_argument("--team-id", help="Liara team ID from the selected team's API page; no token")
     parser.add_argument("--cli-home", help="Private HOME with a CLI login")
     parser.add_argument("--cli-account", help="Account alias from liara account whoami")
     parser.add_argument("--cli-bin", help="Absolute Liara CLI executable")
@@ -64,6 +65,16 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         has_live, writing = choices(args.mode, args.project)
+        if args.team_id:
+            from sentinel.liara import validate_team_id, LiaraError
+            try:
+                validate_team_id(args.team_id)
+            except LiaraError as exc:
+                raise ValueError(str(exc)) from exc
+            if args.mode == "demo":
+                raise ValueError("--team-id requires read/test-api mode")
+            if args.mode == "test-cli":
+                raise ValueError("Team CLI deploy is not supported; use read or test-api")
         if args.health_url:
             url = urlsplit(args.health_url)
             if not args.project or url.scheme != "https" or not url.hostname or url.username or url.password or url.port not in (None, 443):
@@ -84,7 +95,7 @@ def main(argv: list[str] | None = None) -> int:
 
     env = os.environ.copy()
     for key in (
-        "LIARA_API_TOKEN", "SENTINEL_ACCESS_KEY", "SENTINEL_ALLOWED_PROJECTS",
+        "LIARA_API_TOKEN", "LIARA_TEAM_ID", "SENTINEL_ACCESS_KEY", "SENTINEL_ALLOWED_PROJECTS",
         "SENTINEL_CLI_DEPLOY_ENABLED", "SENTINEL_CLI_BIN",
         "SENTINEL_CLI_HOME", "SENTINEL_CLI_ACCOUNT",
         "SENTINEL_HEALTH_URLS", "SENTINEL_LLM_ENDPOINT",
@@ -96,6 +107,8 @@ def main(argv: list[str] | None = None) -> int:
         "SENTINEL_WORKSPACE": str(source_root),
         "SENTINEL_DB_PATH": str(ROOT / "sentinel.sqlite3"),
     })
+    if args.team_id:
+        env["LIARA_TEAM_ID"] = args.team_id
     if args.health_url and args.project:
         env["SENTINEL_HEALTH_URLS"] = json.dumps({args.project: args.health_url})
     if has_live:
@@ -119,6 +132,7 @@ def main(argv: list[str] | None = None) -> int:
         env["SENTINEL_ALLOWED_PROJECTS"] = args.project
         env["SENTINEL_ALLOW_LIVE_WRITES"] = "true"
         env.update(cli_config)
+    print("Liara API scope: " + ("team" if args.team_id else "personal account"))
     print(f"Starting {args.mode} on http://127.0.0.1:{args.port}")
     print("Stop with Ctrl+C; no background task is created.")
     try:

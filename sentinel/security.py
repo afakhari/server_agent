@@ -55,7 +55,10 @@ def actor_digest(access_key: str | None, mode: str) -> str:
         return 'anonymous-demo'
     if not authorized(access_key):
         raise PermissionError('برای استفاده از حالت واقعی یا عملیات مدیریتی کلید دسترسی معتبر لازم است')
-    return hashlib.sha256(access_key.encode()).hexdigest()
+    # Bind live approvals to the operator-selected team. A stale one-time
+    # approval must never be reused after switching API scope on the server.
+    team_scope = os.environ.get('LIARA_TEAM_ID', '') if mode == 'live' else ''
+    return hashlib.sha256((access_key + chr(0) + team_scope).encode()).hexdigest()
 
 
 def payload_digest(operation: str, project: str, fingerprint: str) -> str:
