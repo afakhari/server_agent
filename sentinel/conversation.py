@@ -231,7 +231,7 @@ def inspect_node(state: AgentState) -> dict:
     mode = state["mode"]
     project = state.get("project")
     if mode == "live" and not project:
-        return {"answer": "ابتدا برنامه‌ای را برای بررسی انتخاب کنید. می‌توانید از فهرست برنامه‌های حساب استفاده کنید.",
+        return {"answer": "ابتدا پروژه یا برنامه‌ای را برای بررسی انتخاب کنید. می‌توانید از فهرست برنامه‌های حساب استفاده کنید.",
                 "ui": {"type": "project_picker"}, "awaiting_approval": False}
     if mode == "demo":
         snap = mock_snapshot(state.get("scenario", "transient"))
@@ -254,7 +254,7 @@ def inspect_node(state: AgentState) -> dict:
     if not writes_available and report.get("proposals"):
         report["proposals"] = []
         report.setdefault("limitations", []).append(
-            "در این محیط عملیات تغییر سرویس فعال نیست؛ پیشنهاد تشخیص فقط خواندنی است."
+            "در این محیط عملیات تغییر سرویس غیرفعال است؛ پیشنهاد تشخیص فقط خواندنی است."
         )
     for proposal in report["proposals"]:
         proposal["proposal_id"] = create_approval(
@@ -533,7 +533,7 @@ def _respond_once(actor: str, mode: str, text: str, thread_id: str | None = None
         return safe_result
     if mode == "demo" and scenario == "transient":
         lowered = text.lower()
-        if re.search(r"رم|حافظه|memory|\\bram\\b|oom", lowered):
+        if re.search(r"(?<![\u0600-\u06FF])رم(?![\u0600-\u06FF])|حافظه|memory|\\bram\\b|oom", lowered):
             scenario = "memory"
         elif re.search(r"متغیر محیطی|پیکربندی|database_url|env", lowered):
             scenario = "env"
