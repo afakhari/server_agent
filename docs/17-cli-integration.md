@@ -63,3 +63,6 @@ SENTINEL_CLI_HOME=/srv/sentinel-cli-home
 مسدودشدن قابلیت بدون flag؛ اعتبارسنجی حساب CLI؛ عدم انتقال token به argv/env؛ رد approval تکراری و تغییر منبع؛ عدم کپی .env به staging؛ اجرا بدون Shell؛ گزارش صادقانه NOT_VERIFIED؛ کنترل واقعی سرویس از API بعد deploy.
 
 فایل آزمون سبک: `tests/test_cli.py`. هنوز هیچ عملیات واقعی CLI در این جلسه انجام نشده است.
+
+## کنترل هویت سخت‌گیرانه افزوده‌شده
+قبل از preflight، نام alias و ایمیل واقعی خروجی JSON فرمان whoami بررسی می‌شود. برای نمونه آزمایشی، team غیر-null رد می‌شود. ایمیل CLI با endpoint رسمی `GET /v1/me` برای توکن API تطبیق می‌یابد. اگر حساب‌ها مطابقت نداشته باشند، دیپلوی متوقف می‌شود. `liara.json` ارسال‌شده فقط `platform` و `port` دارد و نمی‌تواند team-id یا تنظیمات اجرای آزاد را override کند. نسخه CLI به 9.6.0 محدود است. آزمون‌های تکمیلی: `tests/test_cli_identity.py`. رابط جدید `scripts/run_local.py` کلیدها را در دیسک ذخیره نمی‌کند.

@@ -23,3 +23,9 @@
 - مرجع رسمی API: `https://developers.liara.ir/`؛ مرجع CLI: `liara-cloud/cli`.
 - مسیر CLI به‌عنوان transport دوم در کد افزوده می‌شود: preview + source fingerprint + تأیید یک‌بارمصرف + اجرا بدون shell + حساب اختصاصی. **LIVE_UNVERIFIED**.
 - هیچ CLI واقعی روی حساب لیارا در این گفت‌وگو اجرا نشده و اتصال/هزینه/رابط auth باید روی حساب آزمایشی تأیید شود.
+
+### بازبینی اجرایی بعدی
+- راه‌انداز محلی `scripts/run_local.py` با چهار حالت demo/read/test-cli/test-api افزوده شد؛ وضعیت پیش‌فرض deny write.
+- CLI identity با JSON whoami و API `/v1/me` بررسی می‌شود؛ تیم فعال و تنظیمات team override از بسته رد می‌شود.
+- راهنمای کامل صاحب پروژه در `docs/18-operator-steps-fa.md` قرار دارد.
+- آزمون‌های جدید نوشته شده‌اند؛ هنوز آزمون زنده با حساب لیارا و اجرای مجدد کل تست‌های repository در این تغییر انجام نشده است.

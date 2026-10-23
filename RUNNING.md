@@ -70,3 +70,13 @@ The current service does not provide a durable distributed workflow queue, tenan
 ## Optional official CLI transport
 
 Select "CLI رسمی" in the deployment wizard. Configure a dedicated isolated CLI account and the binary according to [docs/17-cli-integration.md](docs/17-cli-integration.md). This mode deploys **only to an existing, allowed disposable app** and does not pass the Liara token through process arguments. It still requires Sentinel's existing write and approval gates. The submitted result is not verified recovery.
+
+### Simple local launcher (no saved token)
+
+For step-by-step owner actions, see [docs/18-operator-steps-fa.md](docs/18-operator-steps-fa.md).
+
+    python scripts/run_local.py --mode demo --check
+    python scripts/run_local.py --mode demo
+    python scripts/run_local.py --mode read --project YOUR_EXISTING_TEST_PROJECT
+
+The launcher prompts for the API token invisibly and prints a distinct local Sentinel access key. Only `--mode test-cli` or `--mode test-api`, after exact terminal confirmation, enables test writes. No production use. Optional `--health-url https://your-owned-domain/health` binds an owned HTTPS probe to `--project`.
