@@ -1,0 +1,17 @@
+# Entire Sentinel interface and API are access-gated at the HTTPS reverse proxy.
+# Set environment variables in deploy/server/caddy.env (untracked).
+{$SENTINEL_DOMAIN} {
+    encode gzip
+    basic_auth {
+        operator {$SENTINEL_BASIC_AUTH_HASH}
+    }
+    header {
+        Strict-Transport-Security "max-age=31536000"
+        Referrer-Policy "no-referrer"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+    }
+    reverse_proxy sentinel:8000 {
+        flush_interval -1
+    }
+}
