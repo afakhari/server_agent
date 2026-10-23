@@ -1,4 +1,4 @@
-"""Read-only release gate for single-operator private VPS deployment.
+"""Read-only release gate for the public, simulated competition showcase.
 
 Run after npm install/build and after creating PRIVATE env files.
 Does not print, transmit, or run any sensitive values.
@@ -13,7 +13,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPECTED = (
-    "Dockerfile", "compose.server.yaml", "deploy/server/Caddyfile",
+    "Dockerfile", "compose.server.yaml", "deploy/server/Caddyfile.competition",
     "frontend/dist/index.html", "frontend/package-lock.json",
 )
 
@@ -77,11 +77,14 @@ def evaluate(base: Path = ROOT) -> list[tuple[str, bool]]:
         bool(re.fullmatch(r"[a-zA-Z0-9.-]{4,253}", domain)) and
         "." in domain and not domain.endswith((".example.com", ".localhost"))
     ))
-    hashed = caddy.get("SENTINEL_BASIC_AUTH_HASH", "")
+    public_proxy = base / "deploy/server/Caddyfile.competition"
+    proxy_config = public_proxy.read_text(encoding="utf-8") if public_proxy.is_file() else ""
     results.append((
-        "Caddy password hashed",
-        hashed.startswith(("$2a$", "$2b$", "$2y$", "$argon2id$"))
-        and len(hashed) > 40
+        "competition proxy blocks operator routes",
+        "basic_auth" not in proxy_config
+        and "@operatorOnly path" in proxy_config
+        and "respond @operatorOnly" in proxy_config
+        and "reverse_proxy sentinel:8000" in proxy_config
     ))
     results.append((
         "no live writes on server",
