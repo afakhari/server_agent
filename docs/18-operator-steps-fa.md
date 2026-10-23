@@ -171,3 +171,8 @@ python scripts/run_local.py \
 
 ## هشدار: برنامه تیم با برنامه شخصی فرق دارد
 اگر پنل برنامه `sentinel-sandbox-01` را در فضای **تیم** نشان می‌دهد ولی API فهرست حساب شخصی برنامه دیگری را برمی‌گرداند، قبل از دیپلوی باید `teamID` همان تیم در درخواست‌های API تنظیم شود. راهنمای دقیق با Windows CMD و برنامه خواندنی: [docs/19-team-access.md](19-team-access.md). شناسه تیم در صفحه API همان تیم موجود است و توکن محرمانه محسوب نمی‌شود، اما جایگزین توکن هم نیست. از `python scripts\run_local.py --mode read --team-id YOUR_TEAM_ID --project YOUR_TEAM_APP_ID` شروع کن؛ تا خواندن صحیح برنامه، write را فعال نکن.
+
+## نکته قبل از اولین انتشار FastAPI تیم
+طبق [راهنمای رسمی Python لیارا](https://github.com/liara-cloud/docs/blob/master/src/pages/paas/python/how-tos/deploy-app.mdx)، بدون `args` دستور پیش‌فرض می‌تواند `python3 main.py` باشد. نمونه اولیه FastAPI صرفاً `app` تعریف می‌کرد و سرور را اجرا نمی‌کرد. در اصلاحیه جدید دو مسیر معتبر قرار داده شد: آرگومان صریح `python3 -m uvicorn main:app --host 0.0.0.0 --port 8000` در `liara.json` و fallback مستقیم اجرای `main.py` که Uvicorn را روی پورت 8000 بالا می‌آورد.
+
+**اگر پیش‌نمایش قدیمی داری:** ابتدا Sentinel را با Ctrl+C ببند، `git pull origin main` بزن و با همان `--mode test-api --team-id "%TEAM_ID%" --project sentinel-sandbox-01` دوباره اجرا کن. در مرورگر `Ctrl+F5` بزن و **پیش‌نمایش جدید** بگیر؛ SHA256 سورس جدید خواهد بود. تأیید قبلی را استفاده نکن. تنها وقتی سورس واقعی همان برنامه آزمایشی و هزینه را تأیید کرده‌ای، انتشار واقعی را با تأیید دقیق نام پروژه آغاز کن.
