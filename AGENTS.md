@@ -28,4 +28,4 @@ This repository is the single development source for Liara Sentinel. Follow this
 6. Scout and guided first deployment; domain handoff.
 7. LLM as optional explain/plan module; coding integration via patch/PR.
 ## Definition of Done
-All relevant tests green, errors truthful, secrets masked, UX handles partial failures, docs updated, code review completed. Explicitly label unverified assumptions. **Do not claim production-readiness unless live security and tenancy checks are finished.**
+Lightweight local checks during development; full tests before final submission, errors truthful, secrets masked, UX handles partial failures, docs updated, code review completed. Explicitly label unverified assumptions. **Do not claim production-readiness unless live security and tenancy checks are finished.**

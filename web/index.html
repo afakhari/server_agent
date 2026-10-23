@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Liara Sentinel | مرکز فرمان</title>
+<style>
+:root{font-family:Tahoma,"Vazirmatn",system-ui,sans-serif;background:#071216;color:#eaf3f2;--panel:#122127;--panel2:#172c32;--line:#2c4248;--muted:#9cb1b3;--green:#5be1bd;--amber:#ffc783;--red:#ff8a82}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at top right,#183c3f 0,#071216 55%)}
+button,input,select{font:inherit}button{cursor:pointer}button:disabled{opacity:.55;cursor:not-allowed}
+.shell{max-width:1320px;margin:auto;padding:22px 26px 64px}
+header{display:flex;align-items:center;justify-content:space-between;gap:20px;border-bottom:1px solid #38515766;padding-bottom:18px}
+.logo{display:flex;align-items:center;gap:13px}.mark{border:1px solid #396e63;border-radius:14px;padding:12px;font-size:25px;color:var(--green);background:#15392f}
+.brand{font-size:24px;letter-spacing:.2px;font-weight:800}.brand small{display:block;font-size:11px;font-weight:500;color:var(--muted);margin-top:2px;letter-spacing:1px}
+.status{border:1px solid #3b6057;border-radius:30px;padding:8px 13px;font-size:12px;background:#0c2524;color:var(--green)}
+main{display:grid;grid-template-columns:340px minmax(0,1fr);gap:22px;margin-top:24px}
+aside,.pane{border:1px solid var(--line);background:linear-gradient(165deg,#102229f5,#0c191efa);border-radius:18px;box-shadow:0 14px 40px #0003}
+aside{padding:22px;align-self:start}.pane{padding:24px}
+h1{font-size:29px;line-height:1.6;letter-spacing:-.7px;margin:4px 0 6px}h2{font-size:17px;margin:0 0 15px}h3{font-size:14px;margin:0 0 6px}
+p{color:var(--muted);line-height:1.95;font-size:13px;margin:6px 0 16px}small{color:var(--muted)}
+.eyebrow{text-transform:uppercase;color:var(--green);letter-spacing:2px;font-size:10px;font-weight:700}
+hr{border:0;border-top:1px solid var(--line);margin:22px 0}
+label{display:block;font-size:12px;color:#cadcda;margin:16px 0 6px}
+input,select{width:100%;border:1px solid #365057;background:#07171c;color:#f1faf8;border-radius:10px;padding:12px;outline:none}
+input:focus,select:focus{border-color:var(--green);box-shadow:0 0 0 2px #5be1bd20}
+.actions{display:flex;gap:10px;flex-wrap:wrap}
+.btn{border:0;border-radius:10px;padding:12px 17px;font-weight:700;font-size:12px;transition:filter .2s}
+.btn:hover{filter:brightness(1.08)}.primary{background:var(--green);color:#05322a}.outline{background:#193137;color:#e1f4f0;border:1px solid #456168}.warn{background:#f6ae75;color:#241305}
+.btn.wide{width:100%;margin-top:18px}
+.pills{display:flex;gap:7px;flex-wrap:wrap;margin:13px 0}.pill{background:#182f33;border:1px solid #315259;padding:6px 9px;border-radius:30px;color:#b8cecb;font-size:11px}
+.banner{border:1px solid #31505a;border-radius:12px;background:#102c34;padding:11px 13px;font-size:12px;line-height:1.8;color:#c9e8e8;margin-top:18px}
+.banner.good{border-color:#337e65;background:#11372e}.banner.warning{border-color:#947044;background:#382a1e}.banner.bad{border-color:#a35550;background:#352324}
+.hero{display:flex;justify-content:space-between;align-items:center;gap:18px}
+.circle{font-size:32px;color:var(--green);background:#153932;border:1px solid #2e735f;padding:14px 20px;border-radius:18px}
+.missions{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:22px 0}
+.mission{background:#13292f;border:1px solid #2c4850;border-radius:12px;padding:14px;min-height:94px;text-align:right}
+.mission:hover{border-color:var(--green)}.mission strong{display:block;margin-bottom:7px}.mission span{font-size:12px;color:var(--muted);line-height:1.7}
+.sectionhead{display:flex;justify-content:space-between;align-items:center;gap:8px;border-bottom:1px solid var(--line);padding-bottom:12px;margin-bottom:16px}
+.sectionhead h2{margin:0}.number{font-weight:700;color:var(--green);font-size:12px}
+.columns{display:grid;grid-template-columns:1fr 1fr;gap:12px}.card{border:1px solid #305058;background:#10262e;border-radius:14px;padding:17px;min-width:0}
+.card h3{font-size:15px}.card p{font-size:12px;margin:4px 0}
+.count{font-size:28px;color:#f0fffa;font-weight:800}
+.evidence{list-style:none;padding:0;margin:0;display:grid;gap:8px}
+.evidence li{border:1px solid #29434b;background:#10242b;padding:12px;border-radius:10px;display:flex;gap:12px;align-items:flex-start}
+.evidence .id{font-family:monospace;direction:ltr;color:var(--green);font-size:11px;white-space:nowrap}
+.evidence .text{font-size:12px;line-height:1.7;word-break:break-word}
+.meta{color:var(--muted);font-size:11px;margin-top:6px;direction:ltr;text-align:left}
+.hypothesis{border-right:3px solid var(--amber);padding:12px 14px;background:#2d2c2444;border-radius:9px;margin-bottom:8px}
+.hypothesis strong{display:block;margin:0 0 6px}
+.hypothesis .fine{font-size:12px;color:#c0d0d0;line-height:1.9}
+.inline{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.tag{font-size:10px;background:#39412c;color:#ffd6a9;padding:4px 7px;border-radius:6px}
+.hidden{display:none!important}
+.scroll{max-height:390px;overflow:auto;padding-left:5px}
+.row{display:flex;gap:10px}.row>*{flex:1}
+kbd,code{font-family:ui-monospace,monospace;direction:ltr;unicode-bidi:embed;color:#a7f1d8}
+.muted{color:var(--muted)}
+.footer{border-top:1px solid var(--line);margin-top:22px;padding-top:14px;color:#89a4a3;font-size:11px;line-height:2}
+.loading{opacity:.6;pointer-events:none}
+@media(max-width:990px){main{grid-template-columns:1fr}aside{order:0}.pane{order:1}.missions{grid-template-columns:1fr}.columns{grid-template-columns:1fr}.shell{padding:14px}.pane{padding:16px}.hero .circle{display:none}}
+</style>
+</head>
+<body>
+<div class="shell">
+<header>
+ <div class="logo"><div class="mark">◈</div><div class="brand">Liara Sentinel<small>INTELLIGENT OPERATIONS / نسخه اولیه</small></div></div>
+ <span id="connection" class="status" aria-live="polite">در حال بررسی وضعیت</span>
+</header>
+<main>
+<aside>
+ <div class="eyebrow">MISSION CONTROL · مرکز مأموریت</div>
+ <h2 style="margin:8px 0 4px">یک هدف؛ یک مسیر روشن</h2>
+ <p>مشکل را بررسی کن، شواهدش را ببین، و فقط با تأیید خودت تغییری روی سرویس انجام بده.</p>
+ <label for="mode">نوع اتصال</label>
+ <select id="mode"><option value="demo">دموی آفلاین (داده ساختگی)</option><option value="live">اتصال واقعی به لیارا</option></select>
+ <label for="project">شناسه پروژه</label>
+ <input id="project" value="demo-shop" autocomplete="off" spellcheck="false" dir="ltr">
+ <label for="scenario">سناریوی عیب‌یابی آزمایشی</label>
+ <select id="scenario">
+  <option value="transient">خرابی موقت Worker</option>
+  <option value="env">کلید محیطی گم‌شده</option>
+  <option value="memory">کمبود حافظه</option>
+  <option value="dependency">مشکل اتصال دیتابیس</option>
+  <option value="release">خرابی پس از انتشار</option>
+  <option value="healthy">سرویس سالم</option>
+ </select>
+ <label for="secret">کلید دسترسی Sentinel (فقط برای اتصال امن)</label>
+ <input id="secret" type="password" placeholder="در حافظه همین صفحه؛ ذخیره نمی‌شود" autocomplete="off">
+ <button class="btn primary wide" id="inspectBtn">بررسی و تشخیص مشکل ←</button>
+ <div class="actions" style="margin-top:9px">
+  <button id="projectsBtn" class="btn outline">پروژه‌های من</button>
+  <button id="scoutBtn" class="btn outline">بررسی سورس نمونه</button>
+ </div>
+ <hr>
+ <div class="eyebrow">SAFE DEPLOYMENT</div>
+ <p style="margin-top:10px">برای نمایش مسیر انتشار، ابتدا پروژه موجود را انتخاب کن. نسخه آزمایشی فقط کد نمونه همراه پروژه را منتشر می‌کند.</p>
+ <label for="planId">شناسه پلن برای ایجاد پروژه جدید (از پنل لیارا)</label>
+ <input id="planId" value="PLAN_ID" dir="ltr" spellcheck="false">
+ <button class="btn outline wide" id="provisionBtn">برنامه ایجاد پروژه جدید</button>
+ <button class="btn outline wide" id="deployBtn">انتشار نمونه روی پروژه موجود</button>
+ <div id="notice" class="banner" aria-live="polite">حالت پیش‌فرض ساختگی است؛ برای انجام عملیات واقعی باید حساب آزمایشی، توکن و مجوز مخصوص تنظیم شوند.</div>
+</aside>
+<div>
+ <section class="pane">
+  <div class="hero"><div><div class="eyebrow">EVIDENCE → DECISION → VERIFIED OUTCOME</div>
+    <h1>از خطا تا تشخیص قابل دفاع</h1>
+    <p>نه صرفاً یک پاسخ هوش مصنوعی؛ هر نتیجه باید با شواهد و وضعیت واقعی عملیات همراه باشد.</p>
+   </div><div class="circle" aria-hidden="true">⌁</div></div>
+  <div class="missions">
+   <button class="mission" id="missionIncident"><strong>▣ تشخیص اختلال</strong><span>شواهد لاگ، نسخه‌ها و رویدادها</span></button>
+   <button class="mission" id="missionDeploy"><strong>↗ انتشار نسخه</strong><span>بررسی سورس و استقرار کنترل‌شده</span></button>
+   <button class="mission" id="missionSafety"><strong>◇ کنترل و اثبات</strong><span>تأیید عملیات و سنجش نتیجه</span></button>
+  </div>
+  <div id="results" class="hidden">
+   <div class="sectionhead"><h2 id="resultTitle">گزارش حادثه</h2><span class="number" id="dataMode"></span></div>
+   <div class="columns" style="margin-bottom:15px">
+    <div class="card"><span class="eyebrow">وضعیت تحلیل</span><div class="count" id="verdict">—</div><p id="recommendation"></p></div>
+    <div class="card"><span class="eyebrow">شواهد قابل ارجاع</span><div class="count" id="evidenceCount">۰</div><p id="observedAt"></p></div>
+   </div>
+   <div class="sectionhead"><h2>فرضیه‌های تشخیصی</h2><span class="number">ANALYSIS</span></div>
+   <div id="hypotheses"></div>
+   <div class="sectionhead" style="margin-top:20px"><h2>دفتر شواهد</h2><span class="number">SOURCE TRACE</span></div>
+   <ul class="evidence scroll" id="evidenceList"></ul>
+   <div id="limitations" class="banner warning hidden"></div>
+  </div>
+  <div id="scoutResult" class="hidden"></div>
+  <div id="approvalCard" class="card hidden" style="margin-top:20px;border-color:#9e7951">
+   <div class="eyebrow">HUMAN-IN-THE-LOOP · نیازمند تأیید</div>
+   <h2 style="margin-top:8px" id="approvalTitle"></h2>
+   <p id="approvalDescription"></p>
+   <p><strong>پروژه هدف:</strong> <code id="approvalProject"></code></p>
+   <label for="confirmProject">برای تأیید، نام پروژه را دقیقاً تایپ کن</label>
+   <input id="confirmProject" dir="ltr" autocomplete="off">
+   <div class="actions" style="margin-top:12px">
+    <button id="approveBtn" class="btn warn">تأیید و اجرای همین عملیات</button>
+    <button id="cancelBtn" class="btn outline">انصراف</button>
+   </div>
+  </div>
+  <div id="outcomeCard" class="card hidden" style="margin-top:20px">
+   <div class="eyebrow">EXECUTION & VERIFICATION</div><h2 id="outcomeTitle">نتیجه عملیات</h2>
+   <p id="outcomeDescription"></p>
+   <button id="verifyBtn" class="btn primary hidden">بررسی مستقل وضعیت سرویس</button>
+   <ul class="evidence" id="outcomeEvidence" style="margin-top:12px"></ul>
+  </div>
+  <div id="emptyState" class="banner">برای شروع روی «بررسی و تشخیص مشکل» بزن. در حالت آزمایشی بدون توکن هم می‌توانی چند سناریوی متفاوت را ببینی.</div>
+  <div class="footer">
+   <strong>محدودیت روشن:</strong> دریافت پاسخ موفق از API به معنی سالم‌شدن برنامه نیست. بدون بررسی مستقل، وضعیت نتیجه «تأییدنشده» باقی می‌ماند.
+  </div>
+ </section>
+</div>
+</main>
+</div>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+let approval=null, operationId=null, busy=false;
+function keyHeader(){const key=$("secret").value.trim();return key?{"X-Sentinel-Key":key}:{};}
+async function request(path,options={}){
+ const headers={...keyHeader(),...(options.body?{"Content-Type":"application/json"}:{})};
+ const response=await fetch(path,{...options,headers,cache:"no-store"});
+ let data;
+ try{data=await response.json();}catch(_){data={detail:"پاسخ نامعتبر از سرور"};}
+ if(!response.ok)throw new Error(typeof data.detail==="string"?data.detail:("HTTP "+response.status));
+ return data;
+}
+function showNotice(text,type=""){const box=$("notice");box.textContent=text;box.className="banner "+type;}
+function element(name,text,className){
+ const el=document.createElement(name);if(text!==undefined)el.textContent=String(text);
+ if(className)el.className=className;return el;
+}
+function clear(){approval=null;operationId=null;["approvalCard","outcomeCard"].forEach(id=>$(id).classList.add("hidden"));}
+function setBusy(value){busy=value;["inspectBtn","projectsBtn","scoutBtn","deployBtn","provisionBtn","approveBtn"].forEach(id=>$(id).disabled=value);document.body.classList.toggle("loading",value);}
+function mode(){return $("mode").value;}
+function proj(){return $("project").value.trim();}
+function renderEvidence(target,items){
+ const node=$(target);node.replaceChildren();
+ items.forEach(item=>{
+  const li=element("li");li.append(element("span",item.id||item.source||"●","id"));
+  const body=element("div");body.append(element("div",item.text||JSON.stringify(item),"text"));
+  if(item.source)body.append(element("div",item.source+(item.observed_at?" · "+item.observed_at:""),"meta"));
+  li.append(body);node.append(li);
+ });
+}
+function renderReport(report){
+ clear();$("emptyState").classList.add("hidden");$("scoutResult").classList.add("hidden");
+ $("results").classList.remove("hidden");$("resultTitle").textContent="گزارش حادثه · "+report.project;
+ $("dataMode").textContent=report.mode==="demo"?"DEMO · SYNTHETIC":"LIVE · LIARA";
+ $("verdict").textContent=report.verdict==="needs_more_data"?"داده ناکافی":"شواهد یافت شد";
+ $("recommendation").textContent=report.recommendation;$("evidenceCount").textContent=String(report.evidence.length);
+ $("observedAt").textContent="زمان مشاهده: "+(report.observed_at||"نامشخص");
+ const h=$("hypotheses");h.replaceChildren();
+ report.hypotheses.forEach((item,i)=>{
+  const box=element("div",undefined,"hypothesis");
+  const title=element("strong",(i+1)+". "+item.title+" · "+item.confidence);box.append(title);
+  box.append(element("div",item.reason,"fine"));
+  box.append(element("div","شواهد: "+item.supporting_evidence_ids.join("، ")+" · بررسی بعدی: "+item.next_readonly_check,"meta"));
+  h.append(box);
+ });
+ renderEvidence("evidenceList",report.evidence);
+ $("limitations").classList.toggle("hidden",!report.limitations.length);
+ $("limitations").textContent=report.limitations.join(" | ");
+ if(report.proposals&&report.proposals.length&&report.proposals[0].approval){
+  const proposal=report.proposals[0];displayApproval(proposal.approval,proposal.title,proposal.risk);
+ }
+ showNotice("تحلیل انجام شد؛ داده‌های "+(mode()==="demo"?"آزمایشی":"واقعی")+" با تفکیک شواهد و فرضیه‌ها نمایش داده شدند.","good");
+}
+function displayApproval(token,title,description){
+ approval=token;$("approvalTitle").textContent=title;
+ $("approvalDescription").textContent=description+" · تأیید فقط برای همین پروژه و یک عملیات معتبر است.";
+ $("approvalProject").textContent=token.project;$("confirmProject").value="";
+ $("approvalCard").classList.remove("hidden");$("outcomeCard").classList.add("hidden");
+}
+function renderOutcome(outcome){
+ $("approvalCard").classList.add("hidden");$("outcomeCard").classList.remove("hidden");
+ operationId=outcome.operation_id;
+ $("outcomeTitle").textContent=outcome.execution==="SIMULATED"?"عملیات آزمایشی شبیه‌سازی شد":"درخواست به لیارا ارسال شد";
+ $("outcomeDescription").textContent=outcome.message||"";
+ $("verifyBtn").classList.toggle("hidden",outcome.mode!=="live");
+ renderEvidence("outcomeEvidence",[]);
+}
+async function handle(callback){if(busy)return;setBusy(true);try{await callback();}catch(err){showNotice("خطا: "+err.message,"bad");}finally{setBusy(false);}}
+$("inspectBtn").addEventListener("click",()=>handle(async()=>{
+ const data=await request("/api/inspect",{method:"POST",body:JSON.stringify({mode:mode(),project:proj(),scenario:$("scenario").value})});
+ renderReport(data);
+}));
+$("approveBtn").addEventListener("click",()=>handle(async()=>{
+ if(!approval)return;
+ if($("confirmProject").value.trim()!==approval.project){showNotice("نام پروژه باید دقیقاً منطبق باشد.","warning");return;}
+ const data=await request("/api/approve",{method:"POST",body:JSON.stringify({
+  proposal_id:approval.proposal_id,confirm_project:$("confirmProject").value.trim()})});
+ renderOutcome(data);showNotice(data.message,data.mode==="demo"?"warning":"good");
+}));
+$("verifyBtn").addEventListener("click",()=>handle(async()=>{
+ if(!operationId)return;
+ const data=await request("/api/operations/"+encodeURIComponent(operationId)+"/verify",{method:"POST"});
+ $("outcomeTitle").textContent=data.result==="verified"?"سلامت تأیید شد":data.result==="failed"?"سلامت تأیید نشد":"نتیجه هنوز قطعی نیست";
+ $("outcomeDescription").textContent=data.notice+" · "+data.result;
+ renderEvidence("outcomeEvidence",data.evidence||[]);
+ showNotice("نتیجه بررسی مستقل: "+data.result,data.result==="verified"?"good":"warning");
+}));
+$("cancelBtn").addEventListener("click",()=>{approval=null;$("approvalCard").classList.add("hidden");showNotice("عملیات لغو شد؛ هیچ تغییری اجرا نشده است.");});
+$("projectsBtn").addEventListener("click",()=>handle(async()=>{
+ const data=await request("/api/projects");const names=data.projects.map(p=>p.project_id).filter(Boolean);
+ showNotice(names.length?"پروژه‌ها: "+names.join("، "):"در این حساب پروژه‌ای مشاهده نشد.","good");
+ if(names.length){$("project").value=names[0];$("mode").value="live";}
+}));
+$("scoutBtn").addEventListener("click",()=>handle(async()=>{
+ const data=await request("/api/scout/sample");clear();
+ $("results").classList.add("hidden");$("emptyState").classList.add("hidden");
+ $("scoutResult").classList.remove("hidden");$("scoutResult").replaceChildren();
+ const title=element("h2","بررسی ایستای سورس نمونه");$("scoutResult").append(title);
+ const card=element("div",undefined,"card");
+ card.append(element("h3","بستر: "+data.analysis.platform+" | پورت: "+data.analysis.port));
+ card.append(element("p","فایل‌ها: "+data.analysis.files.join("، ")));
+ card.append(element("p","کلیدهای محیطی نمونه: "+(data.analysis.env_key_names.join("، ")||"مشخص نشده")));
+ card.append(element("p",data.notice));
+ $("scoutResult").append(card);showNotice("بررسی سورس انجام شد؛ هیچ کدی اجرا نشده است.","good");
+}));
+$("provisionBtn").addEventListener("click",()=>handle(async()=>{
+ const data=await request("/api/provision/plan",{method:"POST",
+    body:JSON.stringify({mode:mode(),project:proj(),plan_id:$("planId").value.trim(),platform:"python"})});
+ if(data.status==="blocked"){showNotice("ایجاد پروژه واقعی نیازمند مجوز مخصوص پروژه آزمایشی است.","warning");return;}
+ clear();$("results").classList.add("hidden");$("emptyState").classList.add("hidden");
+ $("scoutResult").classList.remove("hidden");$("scoutResult").replaceChildren();
+ $("scoutResult").append(element("h2","برنامه ایجاد پروژه جدید"));
+ const box=element("div",undefined,"card");box.append(element("p",data.notice));
+ box.append(element("p","پروژه: "+data.project+" · پلن: "+data.plan_id+" · بستر: "+data.platform));
+ $("scoutResult").append(box);
+ displayApproval(data.approval,"ایجاد پروژه در لیارا",data.notice);
+ showNotice("هزینه پلن بررسی نشده است؛ قبل از تایید اطلاعات را در پنل لیارا کنترل کن.","warning");
+}));
+$("deployBtn").addEventListener("click",()=>handle(async()=>{
+ const data=await request("/api/deploy/plan",{method:"POST",body:JSON.stringify({mode:mode(),project:proj()})});
+ if(data.status==="blocked"){showNotice("انتشار واقعی روی این پروژه مجاز نیست؛ تنظیمات سرور را بررسی کن.","warning");return;}
+ clear();$("results").classList.add("hidden");$("emptyState").classList.add("hidden");
+ $("scoutResult").classList.remove("hidden");$("scoutResult").replaceChildren();
+ $("scoutResult").append(element("h2","برنامه انتشار نسخه نمونه"));
+ const box=element("div",undefined,"card");box.append(element("p",data.notice));
+ box.append(element("p","زبان: "+data.analysis.platform+" · پورت: "+data.analysis.port));
+ $("scoutResult").append(box);
+ displayApproval(data.approval,"انتشار نسخه نمونه روی سرویس موجود",data.notice);
+ showNotice("پیشنهاد آماده است؛ هنوز انتشار اجرا نشده.","warning");
+}));
+$("mode").addEventListener("change",()=>{
+ $("scenario").disabled=mode()==="live";
+ if(mode()==="demo"){$("project").value="demo-shop";showNotice("حالت ساختگی فعال است؛ لیارا تغییر نمی‌کند.");}
+ else showNotice("اتصال زنده فقط با کلید دسترسی سرور و توکن تنظیم‌شده در Backend مجاز است.","warning");
+});
+$("missionIncident").addEventListener("click",()=> $("inspectBtn").focus());
+$("missionDeploy").addEventListener("click",()=> $("deployBtn").focus());
+$("missionSafety").addEventListener("click",()=> $("approvalCard").scrollIntoView({behavior:"smooth"}));
+request("/api/config").then(cfg=>{
+ $("connection").textContent=cfg.live_read_available?"DEMO + LIVE READ":"DEMO MODE";
+ showNotice(cfg.live_read_available?"اتصال خواندنی لیارا قابل پیکربندی است؛ write فقط روی پروژه آزمایشی مجاز است.":"نسخه قابل اجرا آماده است. برای فعال‌سازی Live از فایل .env.example استفاده کن.");
+}).catch(()=>{$("connection").textContent="SERVER UNAVAILABLE";});
+</script>
+</body>
+</html>

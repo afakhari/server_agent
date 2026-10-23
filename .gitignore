@@ -1,24 +1,23 @@
-# Sensitive files
+# Secrets and runtime state
 .env
 .env.*
 !.env.example
+.sentinel-data/
+*.db
+*.sqlite3
 *.pem
 *.key
-*token*
 secrets/
 credentials/
 artifacts/raw/
-# Python
 __pycache__/
 *.py[cod]
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
 .venv/
-# JS
 node_modules/
 .next/
 dist/
 coverage/
-# OS
 .DS_Store

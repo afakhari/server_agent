@@ -3,7 +3,7 @@
 ## مسیر بحرانی
 ```mermaid
 flowchart TD
-  M0[Scaffold + CI + safety boundaries] --> M1[Liara read-only real adapter]
+  M0[Scaffold + local smoke tests + safety boundaries] --> M1[Liara read-only real adapter]
   M1 --> M2[Evidence & diagnosis]
   M2 --> M3[Durable workflows + approvals]
   M3 --> M4[Safe test action + verifier]
@@ -16,7 +16,7 @@ flowchart TD
 ## Backlog مرتب‌شده بر اساس ارزش و ریسک
 | Epic | خروجی قابل قبول | وابستگی | اولویت |
 |---|---|---|---|
-| E01: Foundation | pyproject, CI, typed config, test DB, lint | هیچ | P0 |
+| E01: Foundation | Python backend, typed config, SQLite ledger, local smoke | هیچ | P0 |
 | E02: Liara read | project/log/events/releases/metrics typed fixtures + live smoke | E01 | P0 |
 | E03: Evidence store | timestamp UTC, completeness, redaction, citations | E02 | P0 |
 | E04: Investigation | candidate hypotheses + contradiction + inconclusive | E03 | P0 |

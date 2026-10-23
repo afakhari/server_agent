@@ -45,8 +45,8 @@
 Dataset شامل حداقل ۹ نوع رخداد: missing env، invalid port، failed release، CPU، OOM، DB، DNS، stacktrace code bug، evidence insufficient. قابلیت synthetic injection در محیط demo داشته باشد. معیارهای پیشنهادی: `top1_accuracy`، `top3_recall`، `citation_precision`، `unknown-abstention`، `unsafe_action_rate=0` روی مجموعه آزمون تعریف‌شده. هیچ عددی پیش از اجرای آزمون ادعا نشود.
 ## ۵. UX acceptance
 Task script: کاربر بدون آموزش (۱) مشکل را تشخیص دهد، (۲) بداند عملیات چه اثر دارد، (۳) فرق «درخواست پذیرفته شد» و «سرویس سالم است» را توضیح دهد. ضبط زمان انجام، نرخ تکمیل و اشتباهات؛ نتایج و نسخه UI همراه گزارش ثبت شوند.
-## ۶. CI gates
-Pull request: format+lint+static typing، unit+contract+security tests، dependency check، secret scan؛ live checks به صورت manual gated و با test secrets جدا. شکست هر critical security test باید merge را مسدود کند.
+## ۶. کنترل کیفیت متناسب با مرحله توسعه
+در فاز ساخت سریع، CI عمداً ایجاد نمی‌شود. تست‌های دود محلی، مرور کد و بررسی محرمانه‌نماندن داده‌ها به‌صورت دستی انجام می‌شوند. قبل از ارائه نهایی، unit/contract/security و سناریوی کامل روی حساب آزمایشی باید پاس شوند؛ live checks همواره با تأیید جدا اجرا شوند.
 ## ۷. Evidence package برای ادعای قابلیت
 `status, timestamp_UTC, scope=test, redacted request/response IDs, probe outcome, commit_sha, tests_run, actor approval proof`. برای نمایش عمومی token، domain خصوصی/نام کاربر و raw logs سانسور شوند.
 ## ۸. تعریف انتشار
