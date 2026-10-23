@@ -6,6 +6,7 @@ the pre-existing, one-time Sentinel approval and policy endpoints.
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import os
 import re
@@ -422,15 +423,12 @@ def graph():
 
 
 def invoke(state: AgentState, thread_id: str) -> dict:
-    """Serialized graph access for single-operator SQLite MVP."""
-    try:
-        with _GRAPH_LOCK:
-            result = graph().invoke(state, config={"configurable": {"thread_id": thread_id}})
-        return {"answer": result.get("answer", ""), "ui": result.get("ui", {}),
-                "awaiting_approval": bool(result.get("awaiting_approval")),
-                "engine": "langgraph"}
-    except (ImportError, ModuleNotFoundError):
-        # Graceful rules-only fallback when optional graph packages are absent.
+    """Only use rules fallback when LangGraph is truly not installed.
+
+    Do not catch ImportError thrown by a graph node or runtime: retrying that
+    node could duplicate external reads, approvals or side effects.
+    """
+    if importlib.util.find_spec("langgraph") is None:
         routed = route_node(state)
         merged = {**state, **routed}
         node = {"inspect": inspect_node, "deploy": deploy_node,
@@ -438,7 +436,11 @@ def invoke(state: AgentState, thread_id: str) -> dict:
                 "domains": domains_node, "releases": releases_node}[routed["intent"]]
         value = node(merged)
         return {**value, "engine": "rules-fallback"}
-
+    with _GRAPH_LOCK:
+        result = graph().invoke(state, config={"configurable": {"thread_id": thread_id}})
+    return {"answer": result.get("answer", ""), "ui": result.get("ui", {}),
+            "awaiting_approval": bool(result.get("awaiting_approval")),
+            "engine": "langgraph"}
 
 def respond(actor: str, mode: str, text: str, thread_id: str | None = None,
             project: str | None = None, scenario: str = "transient",
@@ -521,16 +523,16 @@ def respond(actor: str, mode: str, text: str, thread_id: str | None = None,
 
 def resume(thread_id: str, result: dict | None) -> dict:
     """Called ONLY by a server-side route after policy validation and execution."""
-    try:
+    if importlib.util.find_spec("langgraph") is None:
+        output = {"answer": "نتیجه اجرای آزمایشی ثبت شد." if result else "اقدام لغو شد.",
+                  "ui": {"type": "execution", "result": result} if result else {"type": "notice", "text": "لغو شد."},
+                  "engine": "rules-fallback"}
+    else:
         from langgraph.types import Command
         with _GRAPH_LOCK:
             state = graph().invoke(Command(resume={"execution_result": result}),
                                    config={"configurable": {"thread_id": thread_id}})
         output = {"answer": state.get("answer", ""), "ui": state.get("ui", {}),
                   "engine": "langgraph"}
-    except (ImportError, ModuleNotFoundError):
-        output = {"answer": "نتیجه اجرای آزمایشی ثبت شد." if result else "اقدام لغو شد.",
-                  "ui": {"type": "execution", "result": result} if result else {"type": "notice", "text": "لغو شد."},
-                  "engine": "rules-fallback"}
     add_message(thread_id, "assistant", output["answer"], output["ui"])
     return {"thread_id": thread_id, **output}
