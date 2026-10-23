@@ -13,6 +13,7 @@ import sqlite3
 import threading
 import time
 import uuid
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, TypedDict
 
@@ -45,10 +46,20 @@ def connect():
     return conn
 
 
+@contextmanager
+def db_session():
+    conn = connect()
+    try:
+        with conn:
+            yield conn
+    finally:
+        conn.close()
+
+
 def open_thread(actor: str, mode: str, thread_id: str | None, project: str | None) -> tuple[str, str | None]:
     if mode not in ("demo", "live"):
         raise ValueError("حالت نامعتبر است.")
-    with _LOCK, connect() as conn:
+    with _LOCK, db_session() as conn:
         if thread_id:
             row = conn.execute("SELECT * FROM chat_threads WHERE id=?", (thread_id,)).fetchone()
             if not row or row["actor"] != actor or row["mode"] != mode:
@@ -68,7 +79,7 @@ def open_thread(actor: str, mode: str, thread_id: str | None, project: str | Non
 
 
 def thread_data(actor: str, thread_id: str) -> dict:
-    with connect() as conn:
+    with db_session() as conn:
         row = conn.execute("SELECT * FROM chat_threads WHERE id=? AND actor=?",
                            (thread_id, actor)).fetchone()
         if row is None:
@@ -84,7 +95,7 @@ def thread_data(actor: str, thread_id: str) -> dict:
 
 
 def list_threads(actor: str) -> list[dict]:
-    with connect() as conn:
+    with db_session() as conn:
         rows = conn.execute("""SELECT t.id,t.mode,t.project,t.updated_at,
             (SELECT substr(m.content,1,72) FROM chat_messages m
              WHERE m.thread_id=t.id AND m.role='user' ORDER BY m.seq LIMIT 1) AS title
@@ -93,7 +104,7 @@ def list_threads(actor: str) -> list[dict]:
 
 
 def add_message(thread_id: str, role: str, content: str, ui: dict | None = None) -> None:
-    with _LOCK, connect() as conn:
+    with _LOCK, db_session() as conn:
         conn.execute("INSERT INTO chat_messages(thread_id,role,content,ui,created_at) VALUES (?,?,?,?,?)",
                      (thread_id, role, content[:5000], json.dumps(ui or {}, ensure_ascii=False), time.time()))
         conn.execute("UPDATE chat_threads SET updated_at=? WHERE id=?", (time.time(), thread_id))
@@ -304,7 +315,7 @@ def respond(actor: str, mode: str, text: str, thread_id: str | None = None,
     if result.get("ui", {}).get("type") == "inspection":
         actual_project = result["ui"]["report"].get("project")
         if actual_project:
-            with connect() as conn:
+            with db_session() as conn:
                 conn.execute("UPDATE chat_threads SET project=? WHERE id=?",
                              (actual_project, identifier))
     return {"thread_id": identifier, **result}
