@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any, TypedDict
 
 from sentinel.engine import diagnose, mock_snapshot
+from sentinel.intent import classify, redact_secrets
 from sentinel.liara import LiaraClient, LiaraError, validate_name
 from sentinel.reasoner import narrative
 from sentinel.scout import inspect_repo
@@ -164,10 +165,15 @@ class AgentState(TypedDict, total=False):
     answer: str
     ui: dict
     awaiting_approval: bool
+    decision: dict
 
 
 def route_node(state: AgentState) -> dict:
-    return {"intent": classify_with_llm(state["text"], detect_intent(state["text"])),
+    # Policy-conservative deterministic classifier is the routing authority.
+    # LLM narratives may explain evidence but can never grant capabilities.
+    decision = classify(state["text"])
+    return {"intent": decision.route, "decision": {
+                **decision.as_dict(), "message": decision.message},
             "answer": "", "ui": {}, "awaiting_approval": False}
 
 
@@ -218,9 +224,66 @@ def projects_node(state: AgentState) -> dict:
             "ui": {"type": "projects", "projects": [p for p in names if p["name"]], "mode": "live"}}
 
 
-def general_node(state: AgentState) -> dict:
-    return {"answer": "می‌توانم پروژه شما را برای استقرار بررسی کنم، وضعیت سرویس را بخوانم یا برای تشخیص خطا شواهد جمع‌آوری کنم. مثلاً بنویسید «سایتم خطای ۵۰۰ می‌دهد» یا «می‌خواهم سایتم را منتشر کنم».",
-            "ui": {"type": "suggestions", "items": ["سایتم خطای ۵۰۰ می‌دهد", "پروژه‌ام را منتشر کن", "فهرست برنامه‌های حساب"]}}
+def guide_node(state: AgentState) -> dict:
+    decision = state.get("decision") or {}
+    topic = decision.get("intent")
+    answers = {
+        "billing": "هزینه یا قیمت پلن را نمی‌توانم بدون تعرفه معتبر حساب شما تعیین کنم. پیش از انتخاب یا ساخت برنامه، قیمت و مصرف قابل‌صورتحساب را در پنل لیارا بررسی کنید. هیچ خریدی انجام نشده است.",
+        "security": "توکن اصلی لیارا فقط در تنظیمات محرمانه سرور قرار می‌گیرد. Sentinel در حالت خصوصی سرور مجوز تغییر سرویس را ندارد. تأیید متنی در چت نیز جایگزین مجوز یک‌بارمصرف نیست.",
+        "env": "تنظیمات محیطی را از پنل سرویس خود بررسی کنید؛ مقدار واقعی متغیرهای محرمانه را در چت نفرستید. می‌توانم خطاهای ناشی از نبود متغیر را از روی شواهد بررسی کنم، اما خودم آن‌ها را تغییر نمی‌دهم.",
+        "explain": "درخواست شما را فقط اطلاعاتی در نظر گرفتم؛ تغییر یا انتشار انجام نشده است.",
+    }
+    answer = decision.get("message") or answers.get(topic) or (
+        "می‌توانم در انتشار امن، بررسی وضعیت برنامه و عیب‌یابی با شواهد کمک کنم."
+    )
+    if topic in answers and not decision.get("message"):
+        answer = answers[topic]
+    return {"answer": answer,
+            "ui": {"type": "guidance", "topic": topic,
+                   "certainty": decision.get("certainty", "unknown"),
+                   "actions": decision.get("suggested_actions", []),
+                   "limitations": ["هیچ عملیات تغییردهنده‌ای از این پیام اجرا نشده است."]}}
+
+
+def domains_node(state: AgentState) -> dict:
+    project = state.get("project")
+    if state["mode"] == "demo":
+        return {"answer": "وضعیت دامنه در حالت Demo از حساب واقعی دریافت نمی‌شود. برای دیدن اطلاعات واقعی، محیط Live Read و شناسه پروژه را انتخاب کنید.",
+                "ui": {"type": "guidance", "topic": "domains", "actions": [
+                    {"label": "بررسی سلامت شبیه‌سازی", "prompt": "سلامت سرویس من را بررسی کن"}],
+                    "limitations": ["نتیجه دامنه برای حالت نمایشی در دسترس نیست."]}}
+    if not project:
+        return {"answer": "برای بررسی دامنه یا SSL باید ابتدا پروژه را انتخاب کنید. بدون نام پروژه، داده‌ای از حساب خوانده نمی‌شود.",
+                "ui": {"type": "project_picker"}}
+    with LiaraClient() as client:
+        response = client.domains(validate_name(project))
+    return {"answer": "فهرست دامنه‌های ثبت‌شده برای این پروژه دریافت شد. نمایش وضعیت دامنه به معنی معتبر بودن HTTPS در همین لحظه نیست.",
+            "ui": {"type": "domains", "project": project,
+                   "domains": response.get("domains", []),
+                   "limitations": ["این مسیر فقط خواندنی است و تنظیمات DNS را تغییر نمی‌دهد."]}}
+
+
+def releases_node(state: AgentState) -> dict:
+    project = state.get("project")
+    if state["mode"] == "demo":
+        return {"answer": "در Demo تاریخچه انتشار واقعی وجود ندارد. برای مشاهده نسخه‌های یک پروژه، حالت Live Read را انتخاب کنید.",
+                "ui": {"type": "guidance", "topic": "releases", "actions": [
+                    {"label": "شبیه‌سازی خطای انتشار", "prompt": "بعد از انتشار سایتم خطا می‌دهد"}],
+                    "limitations": ["هیچ اطلاعاتی از Liara دریافت نشده است."]}}
+    if not project:
+        return {"answer": "برای نمایش نسخه‌ها ابتدا شناسه پروژه را انتخاب کنید.",
+                "ui": {"type": "project_picker"}}
+    with LiaraClient() as client:
+        response = client.releases(validate_name(project))
+    data = []
+    for value in response.get("releases", [])[:10]:
+        if isinstance(value, dict):
+            data.append({k: value[k] for k in ("_id", "tag", "state", "createdAt", "finishedAt")
+                         if k in value})
+    return {"answer": "وضعیت نسخه‌های ثبت‌شده دریافت شد. ارسال یا ثبت نسخه جدید، به‌تنهایی سلامت سایت را تأیید نمی‌کند.",
+            "ui": {"type": "releases", "project": project, "releases": data,
+                   "current_release": response.get("currentRelease"),
+                   "limitations": ["برای نتیجه سلامت، سرویس باید جداگانه بررسی شود."]}}
 
 
 def approval_interrupt(state: AgentState) -> dict:
@@ -253,15 +316,18 @@ def graph():
         builder.add_node("inspect", inspect_node)
         builder.add_node("deploy", deploy_node)
         builder.add_node("projects", projects_node)
-        builder.add_node("general", general_node)
+        builder.add_node("guide", guide_node)
+        builder.add_node("domains", domains_node)
+        builder.add_node("releases", releases_node)
         builder.add_node("approval", approval_interrupt)
         builder.add_edge(START, "route")
         builder.add_conditional_edges("route", lambda s: s["intent"],
                                       {"inspect": "inspect", "deploy": "deploy",
-                                       "projects": "projects", "general": "general"})
+                                       "projects": "projects", "guide": "guide",
+                                       "domains": "domains", "releases": "releases"})
         builder.add_conditional_edges("inspect", lambda s: "approval" if s.get("awaiting_approval") else "end",
                                       {"approval": "approval", "end": END})
-        for n in ("deploy", "projects", "general", "approval"):
+        for n in ("deploy", "projects", "guide", "domains", "releases", "approval"):
             builder.add_edge(n, END)
         checkpoint_path = str(db_path()) + ".graph"
         Path(checkpoint_path).parent.mkdir(parents=True, exist_ok=True)
@@ -283,7 +349,8 @@ def invoke(state: AgentState, thread_id: str) -> dict:
         routed = route_node(state)
         merged = {**state, **routed}
         node = {"inspect": inspect_node, "deploy": deploy_node,
-                "projects": projects_node, "general": general_node}[routed["intent"]]
+                "projects": projects_node, "guide": guide_node,
+                "domains": domains_node, "releases": releases_node}[routed["intent"]]
         value = node(merged)
         return {**value, "engine": "rules-fallback"}
 
@@ -294,7 +361,25 @@ def respond(actor: str, mode: str, text: str, thread_id: str | None = None,
         raise ValueError("طول پیام باید بین ۱ و ۳۰۰۰ نویسه باشد.")
     if scenario not in {"transient", "env", "memory", "release", "healthy"}:
         raise ValueError("سناریوی نامعتبر.")
+    # Never persist a pasted credential or forward it to a model.
+    safe_text, redacted = redact_secrets(text.strip())
+    sensitive = redacted
+    active_key = os.getenv("SENTINEL_ACCESS_KEY", "")
+    liara_key = os.getenv("LIARA_API_TOKEN", "")
+    for secret in (active_key, liara_key):
+        if secret and len(secret) >= 12 and secret in safe_text:
+            safe_text = safe_text.replace(secret, "[REDACTED]")
+            sensitive = True
     identifier, chosen = open_thread(actor, mode, thread_id, project)
+    if sensitive:
+        add_message(identifier, "user", "[پیام حاوی اطلاعات محرمانه؛ حذف‌شده از تاریخچه]")
+        answer = "به‌نظر می‌رسد پیام شما حاوی کلید یا اطلاعات محرمانه بوده است. آن را ذخیره نکردم و به مدل نفرستادم. کلید را در سامانه صادرکننده بازنشانی کنید و فقط در قسمت امن تنظیمات سرور وارد کنید."
+        ui = {"type": "guidance", "topic": "security", "certainty": "blocked",
+              "actions": [{"label": "راهنمای امنیت", "prompt": "روش امن تنظیم‌کردن توکن چیست؟"}],
+              "limitations": ["هیچ عملیاتی انجام نشده است."]}
+        add_message(identifier, "assistant", answer, ui)
+        return {"thread_id": identifier, "answer": answer, "ui": ui,
+                "engine": "privacy-guard", "awaiting_approval": False}
     if mode == "demo" and scenario == "transient":
         lowered = text.lower()
         if re.search(r"رم|حافظه|memory|\\bram\\b|oom", lowered):
@@ -303,9 +388,9 @@ def respond(actor: str, mode: str, text: str, thread_id: str | None = None,
             scenario = "env"
         elif re.search(r"بعد از انتشار|نسخه جدید|بعد از دیپلوی|release", lowered):
             scenario = "release"
-    state = {"text": text.strip(), "actor": actor, "mode": mode,
+    state = {"text": safe_text, "actor": actor, "mode": mode,
              "project": chosen or "", "scenario": scenario}
-    add_message(identifier, "user", text.strip())
+    add_message(identifier, "user", safe_text)
     try:
         result = invoke(state, identifier)
     except (LiaraError, ValueError) as err:
