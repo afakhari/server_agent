@@ -6,13 +6,18 @@ from scripts.check_server_release import evaluate
 
 def populate(root: Path):
     names = [
-        "Dockerfile", "compose.server.yaml", "deploy/server/Caddyfile",
+        "Dockerfile", "compose.server.yaml", "deploy/server/Caddyfile.competition",
         "frontend/dist/index.html", "frontend/package-lock.json",
     ]
     for name in names:
         path = root / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("sample", encoding="utf8")
+    (root / "deploy/server/Caddyfile.competition").write_text(
+        "example.com {\n  @operatorOnly path /api/projects\n"
+        "  respond @operatorOnly 403\n  reverse_proxy sentinel:8000\n}\n",
+        encoding="utf8"
+    )
     (root / "frontend/dist/assets").mkdir(parents=True)
     app_env = root / "deploy/server/app.env"
     app_env.write_text(
@@ -33,7 +38,7 @@ def test_release_gate_requires_real_build_and_operator_secrets(tmp_path):
     status = dict(evaluate(tmp_path))
     assert status["required file: frontend/dist/index.html"] is False
     assert status["non-placeholder Sentinel secret"] is False
-    assert status["Caddy password hashed"] is False
+    assert status["competition proxy blocks operator routes"] is False
 
 
 def test_release_gate_passes_safe_synthetic_fixture(tmp_path):
