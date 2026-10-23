@@ -110,12 +110,16 @@ def test_persian_arabic_digits_and_zwnj():
     "LIARA_API_TOKEN=EXAMPLECONNECTIONSECRET123",
     "OPENAI_API_KEY=abc123456789EXAMPLE987654",
     "sk-ABCDEFGHIJKLMNOPQRST1234567890",
+    '{"LIARA_API_TOKEN": "JSONEXAMPLESECRET123456789"}',
+    "eyJABCDEFGHIJKL123456.eyJMNOPQRSTUVWX123456.abcdefghijklmno123456",
 ])
 def test_secret_filter_detects_common_credentials(secret):
     scrubbed, changed = redact_secrets(secret)
     assert changed
     assert "EXAMPLECONNECTION" not in scrubbed
     assert "SENSITIVEEXAMPLE" not in scrubbed
+    assert "JSONEXAMPLESECRET" not in scrubbed
+    assert "eyJABCDEFGHI" not in scrubbed
 
 
 def test_offline_cluster_discards_sensitive_input_and_never_returns_raw_messages():
