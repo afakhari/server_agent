@@ -55,7 +55,7 @@ function Report({data, onApproval, resolved}:{data:any;onApproval:(proposal:any,
     <button className="plainbtn" onClick={()=>setShowEvidence(v=>!v)} aria-expanded={showEvidence}><List size={15}/> {showEvidence?'بستن شواهد':'مشاهده شواهد و منابع'} <ChevronDown size={14}/></button>
     {showEvidence && <div className="evidencelist">{(report.evidence||[]).map((ev:any)=><div className="evidence" key={ev.id}><strong dir="ltr">{ev.id}</strong> · {ev.text}<small dir="ltr">{ev.source}</small></div>)}</div>}
     {(report.limitations||[]).length > 0 && <div className="caution">{report.limitations.join(' • ')}</div>}
-    {proposal && resolved && <div className="finding"><CheckCircle2 size={15}/> تصمیم این پیشنهاد قبلاً در گفت‌وگو ثبت شده است.</div>}
+    {proposal && resolved && <div className="finding"><ShieldCheck size={15}/> این کارت دیگر قابل تأیید نیست؛ برای اقدام تازه، بررسی جدیدی شروع کنید.</div>}
     {proposal && !resolved && <div className="approval">
       <div className="cardhead"><strong><ShieldCheck size={17}/> تأیید عملیات حساس</strong><span className="tag warning">ریسک: {proposal.risk}</span></div>
       <p><b>{proposal.title}</b> · {proposal.reason}</p>
@@ -275,7 +275,7 @@ export default function App() {
                       {messages.find(m=>m.id===message.id)?.ui?.classification?.certainty!=='clear'&&' · نیاز به انتخاب یا توضیح بیشتر'}
                     </div>}
                     <ToolCard ui={messages.find(m=>m.id===message.id)?.ui} onApproval={approval} onProject={onProject} onAction={(prompt)=>void send(prompt)} token={token} project={project} mode={mode}
-                      resolved={messages.slice(messages.findIndex(m=>m.id===message.id)+1).some(m=>m.ui?.type==='execution'||m.ui?.type==='notice')}/>
+                      resolved={messages.slice(messages.findIndex(m=>m.id===message.id)+1).some(m=>m.role==='user'||m.ui?.type==='execution'||m.ui?.type==='notice')}/>
                   </div></MessagePrimitive.Root>}
               </ThreadPrimitive.Messages>
               {running&&<div className="statusline" aria-live="polite"><LoaderCircle size={16} className="spin"/>{status}</div>}
