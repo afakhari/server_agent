@@ -156,6 +156,8 @@ def classify(message: str) -> Decision:
                         "درخواست شما را توضیحی در نظر گرفتم. هیچ عملیاتی اجرا یا برای تأیید ارسال نمی‌شود.")
 
     # Emergency signals and log text are evidence requests, not deployment.
+    if "notifications" in hits and _has(t, r"وقتی", r"هر وقت", r"به محض", r"\bif\b"):
+        return Decision("notifications", "guide", "clear", tuple(sorted(hits)))
     if "incident" in hits:
         return Decision("incident", "inspect", "clear", tuple(sorted(hits)))
     # Restart is always an investigation and never silently runs.
@@ -191,7 +193,7 @@ def classify(message: str) -> Decision:
         return Decision("health", "inspect", "clear", tuple(sorted(hits)))
     # Prices, plans, security and env are educational guidance with verified
     # boundaries; they are not fabricated estimates or permission changes.
-    for label in ("billing", "security", "env", "database", "backup", "team", "support", "notifications"):
+    for label in ("billing", "security", "env", "backup", "database", "team", "support", "notifications"):
         if label in hits:
             return Decision(label, "guide", "clear", tuple(sorted(hits)))
     return Decision("unknown", "guide", "unknown", tuple(sorted(hits)),
