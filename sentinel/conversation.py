@@ -190,6 +190,21 @@ def inspect_node(state: AgentState) -> dict:
             snap = client.snapshot(validate_name(project))
     report = diagnose(snap)
     report["ai_commentary"] = narrative(report)
+    # Never offer an executable approval when this instance cannot perform it.
+    allowlisted = {p.strip() for p in os.getenv("SENTINEL_ALLOWED_PROJECTS", "").split(",") if p.strip()}
+    writes_available = (
+        mode == "demo" or (
+            os.getenv("SENTINEL_EXPOSURE_MODE", "local") == "local" and
+            os.getenv("SENTINEL_ALLOW_LIVE_WRITES", "").lower() == "true" and
+            len(os.getenv("SENTINEL_ACCESS_KEY", "")) >= 24 and
+            bool(os.getenv("LIARA_API_TOKEN")) and snap["name"] in allowlisted
+        )
+    )
+    if not writes_available and report.get("proposals"):
+        report["proposals"] = []
+        report.setdefault("limitations", []).append(
+            "در این محیط عملیات تغییر سرویس فعال نیست؛ پیشنهاد تشخیص فقط خواندنی است."
+        )
     for proposal in report["proposals"]:
         proposal["proposal_id"] = create_approval(
             state["actor"], mode, snap["name"], proposal["operation"], snapshot_fingerprint(snap)
