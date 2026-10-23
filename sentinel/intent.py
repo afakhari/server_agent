@@ -150,7 +150,7 @@ def classify(message: str) -> Decision:
     hits = {key for key, patterns in _PATTERNS.items() if _has(t, *patterns)}
     # The official brief expects guided first-time infrastructure selection.
     # "Which plan fits my website?" is not a request to buy a plan or deploy.
-    if _has(t, r"زیرساخت مناسب", r"چه زیرساخت", r"چه پلنی", r"کدوم پلن",
+    if "incident" not in hits and _has(t, r"زیرساخت مناسب", r"چه زیرساخت", r"چه پلنی", r"کدوم پلن",
             r"پلن مناسب", r"انتخاب پلن", r"پلن پیشنهاد", r"منابع مورد نیاز",
             r"برای سایت.{0,30}(?:پلن|زیرساخت)", r"\b(?:which plan|sizing advice|capacity planning)\b"):
         return Decision("capacity", "deploy", "clear",
