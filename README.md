@@ -67,3 +67,13 @@ No automated GitHub CI runs by design. New focused offline checks are in tests/;
 
 ### New read-only operations: domain + release status
 The UI has a 'دامنه، SSL و وضعیت انتشار' panel using read-only GET domain listing and release status. Deployment verification reports OBSERVED_HEALTHY_ONCE at most, never sustained recovery without continued observation. Requires configured server-side Liara credentials and operator key. Real-world responses must still be tested on a disposable account.
+
+## Official Liara CLI as a second deployment transport
+
+The project supports two **separately approved** publication paths:
+1. API backend for create → upload → release (existing experimental flow).
+2. CLI backend to deploy a vetted staged archive to an **already existing, disposable test app**. CLI authentication uses an explicitly configured account in a private HOME directory; no HTTP API token is sent as a command-line argument.
+
+The CLI path is **off by default**, and both paths remain unverified against a live account in this development session. See [CLI integration runbook](docs/17-cli-integration.md). Read-only SRE collection still uses the API.
+
+Official docs: https://developers.liara.ir/ and https://github.com/liara-cloud/cli

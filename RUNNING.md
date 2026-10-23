@@ -66,3 +66,7 @@ Tests use fixtures and local SQLite with no external API calls. Automated GitHub
 ## Important limitations
 
 The current service does not provide a durable distributed workflow queue, tenancy, full job progress, production-safe DNS pinning, billing/pricing verification, domain registrar changes, automatic rollback or proven live deployment. The only runtime-verified capability is local mock behavior. See `docs/11-decisions.md` and `docs/14-liara-integration-runbook.md` for validation gates.
+
+## Optional official CLI transport
+
+Select "CLI رسمی" in the deployment wizard. Configure a dedicated isolated CLI account and the binary according to [docs/17-cli-integration.md](docs/17-cli-integration.md). This mode deploys **only to an existing, allowed disposable app** and does not pass the Liara token through process arguments. It still requires Sentinel's existing write and approval gates. The submitted result is not verified recovery.

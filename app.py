@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 from sentinel.engine import diagnose, mock_snapshot
 from sentinel.health import verify_http
 from sentinel.deployer import DeployError, make_plan, claim_plan, perform_deploy
+from sentinel.cli import make_cli_plan, claim_cli_plan, perform_cli_deploy, configured as cli_enabled
 from sentinel.liara import LiaraClient, LiaraError, validate_name
 from sentinel.reasoner import narrative
 from sentinel.scout import inspect_repo, repo_from_workspace
@@ -45,6 +46,7 @@ class ApproveRequest(BaseModel):
     confirm_project: str = Field(min_length=1, max_length=63)
 
 class DeployPlanRequest(BaseModel):
+    backend: str = 'api'
     project: str = Field(min_length=1, max_length=63)
     path: str = Field(min_length=1, max_length=200)
     plan_id: str = Field(min_length=1, max_length=80)
@@ -206,7 +208,15 @@ def deploy_plan(request: Request, payload: DeployPlanRequest):
     if not live_writes_permitted(payload.project):
         raise HTTPException(403, 'طرح انتشار فقط برای پروژه آزمایشی مجاز با پرچم نوشتن فعال قابل ایجاد است')
     try:
-        result = make_plan(actor, payload.project, payload.path, payload.plan_id, payload.platform, payload.port)
+        if payload.backend == 'api':
+            result = make_plan(actor, payload.project, payload.path, payload.plan_id,
+                               payload.platform, payload.port)
+            result['backend'] = 'api'
+        elif payload.backend == 'cli':
+            result = make_cli_plan(actor, payload.project, payload.path,
+                                   payload.platform, payload.port)
+        else:
+            raise DeployError('مسیر انتشار انتخاب‌شده معتبر نیست')
         audit('deployment_proposed', 'live', payload.project)
         return result
     except (DeployError, ValueError, LiaraError) as exc:
@@ -219,9 +229,16 @@ def deploy_execute(request: Request, payload: DeployExecuteRequest):
     if not live_writes_permitted(payload.confirm_project):
         raise HTTPException(403, 'اجازه انتشار زنده برای این پروژه وجود ندارد')
     try:
-        project, plan_id, platform, port, contents = claim_plan(actor, payload.proposal_id, payload.confirm_project)
-        audit('deployment_approved', 'live', project)
-        result = perform_deploy(project, plan_id, platform, port, contents)
+        if payload.proposal_id.startswith('cli_'):
+            project, platform, port, contents = claim_cli_plan(
+                actor, payload.proposal_id, payload.confirm_project)
+            audit('deployment_cli_approved', 'live', project)
+            result = perform_cli_deploy(project, platform, port, contents)
+        else:
+            project, plan_id, platform, port, contents = claim_plan(
+                actor, payload.proposal_id, payload.confirm_project)
+            audit('deployment_approved', 'live', project)
+            result = perform_deploy(project, plan_id, platform, port, contents)
         audit('deployment_submitted', 'live', project)
         return result
     except (DeployError, ValueError, LiaraError) as exc:

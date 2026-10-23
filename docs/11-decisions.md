@@ -40,3 +40,6 @@
 
 ## Implementation checkpoint · 2026-10-23
 A local, single-operator FastAPI prototype, guarded Liara adapter, SQLite one-use approval, rules diagnosis, optional explanatory LLM, owner-configured HTTPS probe and guarded API source upload/release are now implemented and mock-tested (33 tests). UI includes incident analysis, static scout and gated guided deployment preview. **No production auth, tenant isolation, live API contract, pricing validation, release-ready polling, DNS-pinned probe or sustained recovery verification is claimed.** Next objective is live-read contract testing with a disposable account and hardened integration.
+
+## ADR-009 · CLI optional alongside direct API
+**تصمیم 2026-10-23:** CLI رسمی لیارا مسیر انتشار جایگزین به‌صورت explicit و دارای تأیید یک‌بارمصرف است؛ جمع‌آوری شواهد و verification همچنان از API/HTTP مستقل انجام می‌شود. CLI به HOME حساب اختصاصی و باینری پیکربندی‌شده نیاز دارد، هرگز `--api-token` در خط فرمان قرار نمی‌گیرد، و source پیش از deploy در فضای موقت staging از آرشیو پالایش‌شده استخراج می‌شود. CLI هیچ پروژه جدیدی ایجاد نمی‌کند و بدون `SENTINEL_CLI_DEPLOY_ENABLED=true` امکان اجرا ندارد.
