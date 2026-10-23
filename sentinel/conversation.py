@@ -219,13 +219,15 @@ def inspect_node(state: AgentState) -> dict:
 
 
 def deploy_node(state: AgentState) -> dict:
+    request_new = bool(re.search(r"ساخت پروژه|ساخت برنامه|ایجاد پروژه", state["text"].lower()))
+    suggested_backend = "api" if request_new else "api-existing"
     if state["mode"] == "demo":
         demo = inspect_repo(ROOT / "examples" / "fastapi-shop")
         return {"answer": "می‌توانیم روند آماده‌سازی استقرار را با پروژه نمونه ببینیم. در حالت نمایشی هیچ پروژه‌ای ساخته یا منتشر نمی‌شود.",
                 "ui": {"type": "deploy", "mode": "demo", "scout": demo,
-                       "project": state.get("project") or "demo-shop"}}
-    return {"answer": "ابتدا سورس مجاز را بررسی می‌کنیم؛ سپس پیش‌نمایش انتشار، پیامدهای احتمالی و تأیید مخصوص همان عملیات نمایش داده می‌شود. ایجاد/انتشار واقعی فقط روی پروژه آزمایشی مجاز است.",
-            "ui": {"type": "deploy", "mode": "live", "project": state.get("project") or ""}}
+                       "project": state.get("project") or "demo-shop", "backend": suggested_backend}}
+    return {"answer": "برای انتشار باید سورس مجاز، شناسه برنامه و مشخصات پلتفرم معلوم باشند. پیش‌نمایش و تأیید دقیق الزامی‌اند؛ اجرای زنده فقط در محیطی ممکن است که اجازه صریح سرور داشته باشد.",
+            "ui": {"type": "deploy", "mode": "live", "project": state.get("project") or "", "backend": suggested_backend}}
 
 
 def projects_node(state: AgentState) -> dict:
@@ -252,6 +254,7 @@ def guide_node(state: AgentState) -> dict:
         "team": "اگر برنامه در فضای تیمی است، شناسه تیم فقط از تنظیمات سمت سرور انتخاب می‌شود، نه از متن چت. پیش از بررسی، از تطابق حساب و شناسه پروژه مطمئن شوید.",
         "support": "می‌توانید از پشتیبانی رسمی لیارا و اطلاعات حساب خود استفاده کنید. Sentinel در این نسخه تیکت یا پیام پشتیبانی به‌جای شما ارسال نمی‌کند.",
         "notifications": "هشداردهی خودکار و پایش ۲۴ ساعته در این نسخه فعال نشده است؛ بنابراین قول اعلان هنگام خرابی نمی‌دهم. برای این قابلیت باید ابزار پایش مستقلی پیکربندی شود.",
+        "domain_setup": "برای وصل‌کردن دامنه، ابتدا دامنه و رکورد موردنیاز را در پنل پروژه لیارا بررسی کنید و سپس DNS را در سرویس ثبت‌کننده دامنه تنظیم کنید. مقدار رکورد یا زمان فعال‌شدن گواهی را نمی‌توانم بدون داده تأییدشده حدس بزنم. در این نسخه DNS را تغییر نمی‌دهم.",
         "explain": "درخواست شما را فقط اطلاعاتی در نظر گرفتم؛ تغییر یا انتشار انجام نشده است.",
     }
     answer = decision.get("message") or answers.get(topic) or (
