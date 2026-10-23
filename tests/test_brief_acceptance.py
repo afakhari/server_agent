@@ -205,3 +205,17 @@ def test_unknown_database_does_not_become_false_confirmation():
     result = assess(fixture_scan(), AssessmentInput(
         needs_database=None, traffic="unknown"))
     assert any("دیتابیس" in warning for warning in result["warnings"])
+
+
+def test_worker_request_is_not_silently_treated_as_web_deployment():
+    result = assess(fixture_scan(), AssessmentInput(
+        workload="worker", traffic="low", port=8000))
+    assert result["readiness"] == "blocked"
+    assert any("worker" in reason for reason in result["blockers"])
+
+
+def test_new_app_and_existing_app_have_different_owner_tasks():
+    existing = assess(fixture_scan(), AssessmentInput(existing_app=True))
+    creating = assess(fixture_scan(), AssessmentInput(existing_app=False))
+    assert next(x["title"] for x in existing["steps"] if x["id"] == "target") != (
+        next(x["title"] for x in creating["steps"] if x["id"] == "target"))
