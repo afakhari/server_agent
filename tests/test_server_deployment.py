@@ -74,3 +74,17 @@ def test_private_profile_never_allows_liara_write_even_if_flags_change(monkeypat
     monkeypatch.setenv('LIARA_API_TOKEN', 'not-a-real-token')
     monkeypatch.setenv('SENTINEL_ALLOWED_PROJECTS', 'sandbox-app')
     assert sentinel_app.live_writes_permitted('sandbox-app') is False
+
+
+def test_docker_release_uses_lockfile_and_non_root():
+    root = Path(__file__).resolve().parents[1]
+    spec = (root / 'Dockerfile').read_text(encoding='utf8')
+    assert 'frontend/package-lock.json' in spec
+    assert 'npm ci ' in spec
+    assert 'USER 10001:10001' in spec
+    assert 'SENTINEL_EXPOSURE_MODE=private-server' in spec
+    compose = (root / 'compose.server.yaml').read_text(encoding='utf8')
+    assert 'read_only: true' in compose
+    assert 'SENTINEL_ALLOW_LIVE_WRITES: "false"' in compose
+    assert 'ports:' in compose
+    assert '"8000:8000"' not in compose
