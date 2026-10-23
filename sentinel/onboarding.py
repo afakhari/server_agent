@@ -55,8 +55,10 @@ def assess(inspection: dict, req: AssessmentInput) -> dict:
         warnings.append("قبل از انتشار، ظرفیت، محدودیت پلن، افزونگی و شرایط اختلال در پنل واقعی بررسی شوند.")
     if req.workload == "static" and platform in {"python", "php"}:
         warnings.append("برای محتوای صرفاً ایستا شاید سرویس استاتیک مناسب‌تر باشد؛ پلتفرم را قبل از خرید بررسی کنید.")
+    if req.workload == "unknown":
+        warnings.append("نوع اجرای برنامه هنوز معلوم نیست؛ تعیین کنید وب‌سرویس، محتوای ایستا یا worker است.")
     if req.workload == "worker":
-        warnings.append("این تحلیل استقرار وب‌سرویس را ارزیابی می‌کند؛ نیاز پردازش پس‌زمینه باید جدا تأیید شود.")
+        blockers.append("مسیر انتشار موجود برای وب‌سرویس طراحی شده؛ سازگاری worker و دستور اجرا باید جدا تأیید شوند.")
 
     resource_profile = (
         "نیازمند ظرفیت‌سنجی با بار آزمایشی و داده واقعی CPU/RAM"
