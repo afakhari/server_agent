@@ -219,8 +219,16 @@ if (ROOT / 'frontend' / 'dist' / 'assets').is_dir():
 
 @app.get('/api/config')
 def config():
+    planning_enabled = (
+        os.getenv('SENTINEL_EXPOSURE_MODE', 'local') == 'local'
+        and os.getenv('SENTINEL_ALLOW_LIVE_WRITES', '').lower() == 'true'
+        and len(os.getenv('SENTINEL_ACCESS_KEY', '')) >= 24
+        and bool(os.getenv('LIARA_API_TOKEN'))
+        and bool(os.getenv('SENTINEL_ALLOWED_PROJECTS', '').strip())
+    )
     return {'live_read_enabled': bool(os.getenv('LIARA_API_TOKEN')) and len(os.getenv('SENTINEL_ACCESS_KEY','')) >= 24,
             'live_write_enabled': False,  # Per-project gates are checked on every operation, never advertise globally.
+            'deployment_planning_available': planning_enabled,
             'auth_required': bool(os.getenv('SENTINEL_ACCESS_KEY')),
             'server_profile': 'private-server' if os.getenv('SENTINEL_EXPOSURE_MODE') == 'private-server' else 'local',
             'liara_scope': 'team' if os.getenv('LIARA_TEAM_ID') else 'personal',
