@@ -19,6 +19,7 @@ from typing import Any, TypedDict
 
 from sentinel.engine import diagnose, mock_snapshot
 from sentinel.intent import classify, redact_secrets
+from sentinel.handoff import make_handoff
 from sentinel.liara import LiaraClient, LiaraError, validate_name
 from sentinel.reasoner import narrative
 from sentinel.scout import inspect_repo
@@ -189,6 +190,7 @@ def inspect_node(state: AgentState) -> dict:
         with LiaraClient() as client:
             snap = client.snapshot(validate_name(project))
     report = diagnose(snap)
+    report["coding_handoff"] = make_handoff(report)
     report["ai_commentary"] = narrative(report)
     # Never offer an executable approval when this instance cannot perform it.
     allowlisted = {p.strip() for p in os.getenv("SENTINEL_ALLOWED_PROJECTS", "").split(",") if p.strip()}
