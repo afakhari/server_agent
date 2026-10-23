@@ -133,7 +133,8 @@ def fp(snap):
 
 def live_writes_permitted(project: str) -> bool:
     projects = {p.strip() for p in os.getenv('SENTINEL_ALLOWED_PROJECTS', '').split(',') if p.strip()}
-    return (os.getenv('SENTINEL_ALLOW_LIVE_WRITES', '').lower() == 'true'
+    return (os.getenv('SENTINEL_EXPOSURE_MODE', 'local') != 'private-server'
+            and os.getenv('SENTINEL_ALLOW_LIVE_WRITES', '').lower() == 'true'
             and len(os.getenv('SENTINEL_ACCESS_KEY', '')) >= 24
             and project in projects and bool(os.getenv('LIARA_API_TOKEN')))
 
