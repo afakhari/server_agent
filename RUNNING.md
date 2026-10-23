@@ -61,7 +61,7 @@ After exact human approval, submit `POST /api/deploy/execute` with `{ "proposal_
 python -m pytest -q
 ```
 
-Tests use fixtures and local SQLite with no external API calls. Automated GitHub CI has been removed to focus on fast development; run this command manually before submission. See `docs/09-testing.md` for broader required acceptance tests that are not fully automated yet.
+Tests use fixtures and local SQLite with no external API calls. The conversational PR includes a limited offline GitHub Actions smoke workflow; run this command manually too before submission. No live API test is performed by CI. See `docs/09-testing.md` for broader required acceptance tests that are not fully automated yet.
 
 ## Important limitations
 
