@@ -1,0 +1,13 @@
+{
+  "name": "liara-sentinel-node-demo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Disposable zero-dependency Node.js health-check demo for Liara Sentinel",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

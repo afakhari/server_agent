@@ -95,3 +95,14 @@ The guided deployment wizard now defaults to **API: publish to existing applicat
 
 ### Existing application platform check
 The wizard validates the API project's `type` against the selected source platform. Platform spelling differs only by letter case? Both `Python` and `python` are accepted. An actual mismatch (for instance `node` vs `python`), missing metadata, or a different project ID **blocks all writes**, showing a safe non-secret diagnostic. The account's read-only project dropdown now labels actual platform types. Do not bypass a mismatch by editing request parameters blindly.
+
+### Existing Liara Node application (Windows, no CLI)
+The real account project may be **Node.js**, not Python. Do not upload the Python
+FastAPI example to a Node application. Choose the new zero-dependency
+[Node Sentinel demo](examples/node-sentinel-demo/README.md). In the existing-app
+API wizard, use path `node-sentinel-demo`, platform `node`, port `8000`
+and the **exact project ID returned by the Liara API**. The project picker now
+populates the matching platform and source path automatically for Node or Python.
+Node packaging follows Liara's documented `package.json` start script.
+The API upload and release write paths remain live-unverified until tested
+against a disposable account. Inspect costs and preview before approval.
