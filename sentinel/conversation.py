@@ -85,8 +85,10 @@ def thread_data(actor: str, thread_id: str) -> dict:
 
 def list_threads(actor: str) -> list[dict]:
     with connect() as conn:
-        rows = conn.execute("""SELECT id,mode,project,updated_at FROM chat_threads
-            WHERE actor=? ORDER BY updated_at DESC LIMIT 40""", (actor,)).fetchall()
+        rows = conn.execute("""SELECT t.id,t.mode,t.project,t.updated_at,
+            (SELECT substr(m.content,1,72) FROM chat_messages m
+             WHERE m.thread_id=t.id AND m.role='user' ORDER BY m.seq LIMIT 1) AS title
+            FROM chat_threads t WHERE t.actor=? ORDER BY t.updated_at DESC LIMIT 40""", (actor,)).fetchall()
     return [dict(r) for r in rows]
 
 
