@@ -1,0 +1,19 @@
+# Public competition showcase: visitors can use only the simulated flows.
+# Never put credentials or an authentication challenge in the browser.
+{$SENTINEL_DOMAIN} {
+    encode gzip
+    header {
+        Strict-Transport-Security "max-age=31536000"
+        Referrer-Policy "no-referrer"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+    }
+
+    # These operator-only routes have no purpose in the public demo.
+    @operatorOnly path /api/projects /api/scout /api/deploy/* /api/domains/*
+    respond @operatorOnly "Operations not available on the public competition site" 403
+
+    reverse_proxy sentinel:8000 {
+        flush_interval -1
+    }
+}
