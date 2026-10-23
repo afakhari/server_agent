@@ -6,7 +6,7 @@ import { Activity, ArrowUp, BookOpen, CheckCircle2, ChevronDown, CircleAlert, Cl
 type UIPayload = { type?: string; [key: string]: any };
 type ChatItem = { id: string; role: 'user'|'assistant'; content: string; ui?: UIPayload; at: number };
 type Thread = { id: string; project?: string; mode: string; updated_at: number; title?: string };
-const examples = ['سایتم خطای ۵۰۰ می‌دهد', 'پروژه‌ام را روی لیارا منتشر کن', 'فهرست برنامه‌های حساب'];
+const examples = ['سایتم خطای ۵۰۰ می‌دهد', 'پروژه نمونه را برای انتشار بررسی کن', 'فهرست برنامه‌های حساب'];
 const intentNames:Record<string,string> = {
   incident:'عیب‌یابی', restart:'بررسی پیش از راه‌اندازی مجدد', health:'سلامت سرویس',
   deploy:'آماده‌سازی انتشار', projects:'فهرست برنامه‌ها', releases:'تاریخچه انتشار',
@@ -108,7 +108,7 @@ function DeployCard({data,token,activeProject,mode,onProject,serverReadOnly}:{da
   const [error,setError] = useState('');
   const [busy,setBusy] = useState(false);
   const api = async (url:string,body:any) => {
-    const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','X-Sentinel-Access-Key':token},body:JSON.stringify(body)});
+    const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const json=await r.json(); if(!r.ok) throw parseError(r,json);return json;
   };
   async function run(job:()=>Promise<any>,save:(v:any)=>void) {
@@ -166,18 +166,18 @@ function DeployCard({data,token,activeProject,mode,onProject,serverReadOnly}:{da
         <p className="secondarytext">{assessment.disclaimer}</p>
       </div>}
     </div>
-    <div className="formgrid">
+    {mode==='live' && <div className="formgrid">
       <label>مسیر سورس در فضای کاری مجاز<input value={path} onChange={e=>{setPath(e.target.value);setAssessment(null);setScan(null);setPlan(null);}} dir="ltr"/></label>
       <label>شناسه برنامه آزمایشی<input value={project} onChange={e=>{setProject(e.target.value);setAssessment(null);setPlan(null);setResult(null);}} dir="ltr" /></label>
       <label>روش انتشار<select value={backend} onChange={e=>{setBackend(e.target.value);setAssessment(null);setPlan(null);setResult(null);}}><option value="api-existing">API · برنامه موجود</option><option value="api">API · ساخت برنامه</option><option value="cli">CLI · برنامه موجود</option></select></label>
       <label>پلتفرم<select value={platform} onChange={e=>{setPlatform(e.target.value);setAssessment(null);setPlan(null);}}><option value="python">Python</option><option value="node">Node</option><option value="php">PHP</option><option value="docker">Docker</option></select></label>
       <label>پورت<input value={port} onChange={e=>{setPort(e.target.value);setAssessment(null);setPlan(null);}} type="number" min="1" max="65535" dir="ltr"/></label>
       {backend==='api' && <label>شناسه پلن معتبر<input value={planId} onChange={e=>{setPlanId(e.target.value);setPlan(null);}} dir="ltr"/></label>}
-    </div>
-    <div className="actions">
+    </div>}
+    {mode==='live' && <div className="actions">
       <button className="secondary" disabled={busy||mode!=='live'||!token} onClick={()=>run(()=>api('/api/scout',{path}),x=>setScan(x.analysis))}>تحلیل سورس</button>
       <button className="primary" disabled={busy||serverReadOnly||mode!=='live'||!token||!project||!path||!assessment||assessment.readiness==='blocked'||assessment.platform!==platform||(assessment.port!=null&&assessment.port!==Number(port))||(backend==='api'&&!planId)||!Number.isInteger(Number(port))||Number(port)<1||Number(port)>65535} onClick={()=>run(()=>api('/api/deploy/plan',{backend,project,path,platform,port:Number(port),plan_id:backend==='api'?planId:'existing'}),x=>{setPlan(x);setConfirmation('');setExecuteAttempted(false);setResult(null);setVerification(null);onProject(x.project);})}>پیش‌نمایش انتشار</button>
-    </div>
+    </div>}
     {assessment && assessment.platform!==platform && <p className="caution" role="alert">پلتفرم انتخاب‌شده با تحلیل سورس همخوانی ندارد. قبل از درخواست انتشار، پلتفرم را اصلاح کنید.</p>}
     {assessment && assessment.port!=null && assessment.port!==Number(port) && <p className="caution" role="alert">پورت انتشار با نتیجه بررسی سورس متفاوت است. برای پیش‌نمایش باید دوباره تنظیمات را یکسان کنید.</p>}
     {mode==='demo' && <div className="caution">این نمونه شبیه‌سازی است. عملیات انتشار واقعی فقط با اتصال امن و مجوز سمت سرور فعال می‌شود.</div>}
@@ -190,7 +190,7 @@ function DeployCard({data,token,activeProject,mode,onProject,serverReadOnly}:{da
     </div>}
     {executeAttempted&&!result&&<div className="caution">یک تلاش برای اجرای این مجوز ثبت شد. حتی اگر پاسخ خطا بود، ممکن است عملیاتی در سرویس آغاز شده باشد؛ برای جلوگیری از اجرای تکراری، ابتدا وضعیت پروژه را در لیارا بررسی کنید و سپس پیش‌نمایش تازه بگیرید.</div>}
     {result && <div className="finding"><b>نتیجه ارسال:</b> {JSON.stringify(result)}<p>ارسال انتشار به معنی سلامت تأییدشده نیست.</p>
-      <button className="secondary" disabled={busy} onClick={()=>run(async()=>{const r=await fetch('/api/deploy/status/'+encodeURIComponent(project),{headers:{'X-Sentinel-Access-Key':token}});const v=await r.json();if(!r.ok)throw parseError(r,v);return v;},setVerification)}>بررسی مستقل وضعیت انتشار</button>
+      <button className="secondary" disabled={busy} onClick={()=>run(async()=>{const r=await fetch('/api/deploy/status/'+encodeURIComponent(project));const v=await r.json();if(!r.ok)throw parseError(r,v);return v;},setVerification)}>بررسی مستقل وضعیت انتشار</button>
     </div>}
     {verification && <div className="finding"><b>نتیجه مشاهده:</b> {verification.judgment}<p>وضعیت سرویس: {verification.app_status||'نامشخص'} · پروب سلامت: {verification.health_observation?.status||'نامشخص'}</p><small>{verification.note}</small></div>}
     {error && <div role="alert" className="caution">{error}</div>}
@@ -209,7 +209,7 @@ function ToolCard({ui,onApproval,onProject,onAction,token,project,mode,resolved,
     const projects = ui.projects || listing;
     return <div className="toolcard"><strong><Server size={17}/> برنامه‌های حساب</strong>
       {projects.length ? projects.map((p:any)=><button className="projectchoice" key={p.name} onClick={()=>onProject(p.name)} dir="ltr">{p.name} <CheckCircle2 size={15}/></button>):<p className="secondarytext">برای مشاهده برنامه‌ها از حساب متصل استفاده کنید.</p>}
-      {ui.type==='project_picker' && <button className="secondary" onClick={async()=>{try{const r=await fetch('/api/projects',{headers:{'X-Sentinel-Access-Key':token}});const j=await r.json();if(!r.ok)throw parseError(r,j);setListing((j.projects||[]).map((x:any)=>({name:x.project_id||x.name})));}catch(e:any){setError(e.message)}}}>دریافت فهرست واقعی</button>}
+      {ui.type==='project_picker' && <button className="secondary" onClick={async()=>{try{const r=await fetch('/api/projects');const j=await r.json();if(!r.ok)throw parseError(r,j);setListing((j.projects||[]).map((x:any)=>({name:x.project_id||x.name})));}catch(e:any){setError(e.message)}}}>دریافت فهرست واقعی</button>}
       {error && <p role="alert" className="caution">{error}</p>}
     </div>;
   }
@@ -263,7 +263,7 @@ export default function App() {
   const [mode,setMode] = useState<'demo'|'live'>('demo');
   const [scenario,setScenario] = useState('transient');
   const [project,setProject] = useState('');
-  const token = ''; // Never collect or send a Sentinel access key from this UI.
+  const token = ''; // No operator credentials are collected or forwarded by this demo.
   const [running,setRunning] = useState(false);
   const sendingRef = useRef(false);
   const [status,setStatus] = useState('');
@@ -276,7 +276,7 @@ export default function App() {
       .then(data=>{setServerReadOnly(!Boolean(data.deployment_planning_available));})
       .catch(()=>setServerReadOnly(true));
   },[]);
-  const headers = useMemo(()=>({'Content-Type':'application/json','X-Sentinel-Access-Key':token}),[token]);
+  const headers = useMemo(()=>({'Content-Type':'application/json'}),[]);
   const refreshThreads = useCallback(async()=>{try{const r=await fetch('/api/chat/threads',{headers});if(!r.ok)return;const json=await r.json();setThreads(json.threads||[]);}catch{}},[headers]);
   useEffect(()=>{void refreshThreads();},[refreshThreads]);
   const loadThread = useCallback(async(id:string)=>{
@@ -336,10 +336,10 @@ export default function App() {
       <main className="main">
         <header className="topbar">
           <div className="topstart">{!sideOpen && <button className="iconbutton" onClick={()=>setSideOpen(true)} aria-label="بازکردن نوار کناری"><Menu size={20}/></button>}<span className="headlogo">Sentinel</span><span className="separator">/</span><span>{project || 'فضای کاری'}</span></div>
-          <div className="topend"><span className={'indicator '+mode}></span><select aria-label="محیط اجرا" value={mode} onChange={e=>{setMode(e.target.value as 'demo'|'live');reset();}}><option value="demo">Demo Sandbox</option><option value="live">Live Read / Test</option></select></div>
+          <div className="topend"><span className="indicator demo"></span><span aria-label="محیط اجرا">دموی مسابقه · بدون نیاز به ورود</span></div>
         </header>
         <div className="utilitybar">
-          <label><Server size={15}/> شناسه پروژه<input value={project} onChange={e=>setProject(e.target.value)} placeholder="نام پروژه در لیارا" dir="ltr"/></label>
+          <span className="demo-project"><Server size={15}/> پروژه نمونه: <b dir="ltr">{project||'demo-shop'}</b></span>
           {mode==='demo' && <label>سناریو<select value={scenario} onChange={e=>setScenario(e.target.value)}><option value="transient">خرابی فرایند</option><option value="env">متغیر محیطی</option><option value="memory">کمبود حافظه</option><option value="release">خطای انتشار</option><option value="healthy">سالم</option></select></label>}
           <button className="iconbutton" onClick={()=>void refreshThreads()} title="بروزرسانی تاریخچه"><RefreshCcw size={16}/></button>
         </div>
@@ -348,7 +348,7 @@ export default function App() {
             <ThreadPrimitive.Viewport className="threadviewport">
               <AuiIf condition={s=>s.thread.isEmpty}>
                 <section className="welcome"><div className="welcomemark"><Sparkles size={29}/></div><h1>چطور می‌تونم به سایتت کمک کنم؟</h1>
-                  <p>از انتشار اولین نسخه تا تشخیص خطا و بررسی سلامت سرویس؛ هدف خودت را بگو، من مسیر مناسب را پیشنهاد می‌دهم.</p>
+                  <p>بدون ساخت حساب و واردکردن کلید، سناریوهای نمونهٔ استقرار و عیب‌یابی را امتحان کن. داده‌ها شبیه‌سازی شده‌اند و هیچ تغییری در حساب واقعی لیارا انجام نمی‌شود.</p>
                   <div className="suggestions">{examples.map(x=><ThreadPrimitive.Suggestion key={x} prompt={x} send className="suggestion"><ArrowUp size={15}/>{x}</ThreadPrimitive.Suggestion>)}</div>
                 </section>
               </AuiIf>
