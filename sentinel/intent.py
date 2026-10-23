@@ -47,6 +47,21 @@ def redact_secrets(text: str) -> tuple[str, bool]:
         r"\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{8,}\b",
         "[REDACTED]", new
     )
+    new = re.sub(
+        r"(?i)\b(?:postgres(?:ql)?|mysql|redis|mongodb(?:\+srv)?)://[^\s<>'\"]+",
+        "[REDACTED CONNECTION STRING]", new
+    )
+    new = re.sub(
+        r"(?i)\b((?:database_url|redis_url|postgres_url|mysql_url|mongodb_uri|"
+        r"private_key|aws_secret_access_key|github_token|access_token)\s*[:=]\s*)"
+        r"[^\s;,]+",
+        r"\1[REDACTED]", new
+    )
+    new = re.sub(
+        r"-----BEGIN (?:[A-Z0-9 ]+ )?PRIVATE KEY-----[\s\S]{0,16000}?"
+        r"-----END (?:[A-Z0-9 ]+ )?PRIVATE KEY-----",
+        "[REDACTED PRIVATE KEY]", new, flags=re.IGNORECASE
+    )
     # Exact redaction of an operator key is handled in the service layer too.
     return new, new != text
 
