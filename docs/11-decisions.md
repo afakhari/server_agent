@@ -37,3 +37,6 @@
 - تاریخ ویدیو/ثبت مسابقه از بریف ما مشخص نیست؛ هیچ deadline اختراع نشود.
 ## تغییر تصمیم
 هر ADR با PR شامل alternative، rationale، impact on tests/security/UX و تاریخ بازبینی جایگزین شود.
+
+## Implementation checkpoint · 2026-10-23
+A local, single-operator FastAPI prototype, guarded Liara adapter, SQLite one-use approval, rules diagnosis, optional explanatory LLM, owner-configured HTTPS probe and guarded API source upload/release are now implemented and mock-tested (33 tests). UI includes incident analysis, static scout and gated guided deployment preview. **No production auth, tenant isolation, live API contract, pricing validation, release-ready polling, DNS-pinned probe or sustained recovery verification is claimed.** Next objective is live-read contract testing with a disposable account and hardened integration.
