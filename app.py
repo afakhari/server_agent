@@ -349,6 +349,10 @@ def chat_stream(request: Request, payload: ChatMessageRequest):
             yield 'event: complete\ndata: ' + json.dumps(output, ensure_ascii=False) + '\n\n'
         except (ValueError, PermissionError, LiaraError) as exc:
             yield 'event: error\ndata: ' + json.dumps({'detail': str(exc)}, ensure_ascii=False) + '\n\n'
+        except Exception:
+            yield 'event: error\ndata: ' + json.dumps(
+                {'detail': 'خطای داخلی در جریان گفت‌وگو رخ داد؛ وضعیت را بررسی کنید و عملیات حساس را خودکار تکرار نکنید.'},
+                ensure_ascii=False) + '\n\n'
     return StreamingResponse(iterate(), media_type='text/event-stream',
                              headers={'X-Accel-Buffering': 'no', 'Cache-Control': 'no-store'})
 
