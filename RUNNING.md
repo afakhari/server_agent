@@ -93,3 +93,8 @@ npm run dev
 ```
 
 Open `http://127.0.0.1:5173`. For a bundled single-port version, run `npm run build` inside frontend and restart the Python server; then open `http://127.0.0.1:8000`. New chat session persistence uses the DB path configured by `SENTINEL_DB_PATH`; graph checkpoints use an adjacent `.graph` SQLite file. `SENTINEL_CHAT_LLM_ENABLED`, `SENTINEL_LLM_BASE_URL`, `SENTINEL_LLM_MODEL` and `SENTINEL_LLM_API_KEY` enable optional LangChain routing; no model access means deterministic fallback. See `docs/20-conversation-runbook.md`.
+
+
+## Remote private staging only
+
+For a Linux VPS and private operator evaluation, see [docs/21-private-server-deployment.md](docs/21-private-server-deployment.md). The `Dockerfile` defaults to a fail-closed `private-server` profile. The reverse proxy at Caddy authenticates every request over HTTPS and exposes only ports 80/443; the app API is private. `SENTINEL_ALLOW_LIVE_WRITES` and CLI are always disabled in this profile. **A working local uvicorn instance is not evidence of a verified server release.**
