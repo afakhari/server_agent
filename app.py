@@ -497,7 +497,6 @@ class ChatMessageRequest(BaseModel):
     request_id: str | None = Field(default=None, min_length=16, max_length=128,
                                    pattern=r'^[A-Za-z0-9_-]+
 
-
 class ChatApprovalRequest(BaseModel):
     thread_id: str
     proposal_id: str
@@ -529,123 +528,6 @@ def chat_stream(request: Request, payload: ChatMessageRequest):
                                           payload.request_id)
             yield 'event: complete\ndata: ' + json.dumps(output, ensure_ascii=False) + '\n\n'
         except (ValueError, PermissionError, RuntimeError, LiaraError) as exc:
-            yield 'event: error\ndata: ' + json.dumps({'detail': str(exc)}, ensure_ascii=False) + '\n\n'
-        except Exception:
-            yield 'event: error\ndata: ' + json.dumps(
-                {'detail': 'خطای داخلی در جریان گفت‌وگو رخ داد؛ وضعیت را بررسی کنید و عملیات حساس را خودکار تکرار نکنید.'},
-                ensure_ascii=False) + '\n\n'
-    return StreamingResponse(iterate(), media_type='text/event-stream',
-                             headers={'X-Accel-Buffering': 'no', 'Cache-Control': 'no-store'})
-
-
-def authorized_chat_thread(request: Request, thread_id: str):
-    """Authorize per stored chat mode, including team-scoped live actors."""
-    for mode, actor in actor_candidates(request):
-        try:
-            thread = chat_service.thread_data(actor, thread_id)
-        except PermissionError:
-            continue
-        if thread['mode'] == mode:
-            return actor, thread
-    raise PermissionError('گفت‌وگو در حساب و محیط جاری در دسترس نیست.')
-
-
-@app.get('/api/chat/threads')
-def chat_threads(request: Request):
-    try:
-        principals = actor_candidates(request)
-        combined = {}
-        for mode, actor in principals:
-            for thread in chat_service.list_threads(actor):
-                if thread['mode'] == mode:
-                    combined[thread['id']] = thread
-        result = sorted(combined.values(), key=lambda t: t['updated_at'],
-                        reverse=True)[:40]
-        return {'threads': result}
-    except PermissionError as exc:
-        raise HTTPException(403, str(exc)) from exc
-
-
-@app.get('/api/chat/threads/{thread_id}')
-def chat_thread(request: Request, thread_id: str):
-    try:
-        return authorized_chat_thread(request, thread_id)[1]
-    except PermissionError as exc:
-        raise HTTPException(403, str(exc)) from exc
-
-
-@app.post('/api/chat/approval')
-def chat_approval(request: Request, payload: ChatApprovalRequest):
-    try:
-        actor, thread = authorized_chat_thread(request, payload.thread_id)
-        # Proposal must belong to this exact thread; the model cannot invent approvals.
-        # Only the latest assistant decision can be approved. If the user has
-        # changed topic or received another answer, old cards cannot be used.
-        messages = thread['messages']
-        latest = messages[-1] if messages else None
-        valid = bool(
-            latest and latest['role'] == 'assistant' and
-            latest['ui'].get('type') == 'inspection' and
-            any(p.get('proposal_id') == payload.proposal_id
-                for p in latest['ui'].get('report', {}).get('proposals', [])) and
-            latest['ui'].get('report', {}).get('project') == payload.confirm_project
-        )
-        if not valid:
-            raise PermissionError('این عملیات متعلق به گفت‌وگوی جاری نیست.')
-        # Enforce the proposal's original mode, not just a matching project
-        # or shared access key, before any restart can be submitted.
-        stored = inspect_approval(payload.proposal_id, actor, payload.confirm_project)
-        if stored['mode'] != thread['mode']:
-            raise PermissionError('حالت مجوز با گفت‌وگو مطابقت ندارد')
-        if payload.approved:
-            execution = approve(request, ApproveRequest(
-                proposal_id=payload.proposal_id, confirm_project=payload.confirm_project))
-        else:
-            cancel_approval(payload.proposal_id, actor, payload.confirm_project)
-            audit('approval_cancelled', thread['mode'], payload.confirm_project)
-            execution = None
-        try:
-            return chat_service.resume(payload.thread_id, execution)
-        except Exception:
-            # A successful mutation must never be retried because UI checkpoint failed.
-            outcome = {'type': 'execution', 'result': execution} if execution else {'type': 'notice', 'text': 'عملیات لغو شد.'}
-            chat_service.add_message(payload.thread_id, 'assistant',
-                                     'وضعیت عملیات ثبت شد؛ همگام‌سازی گراف نیازمند بررسی است.', outcome)
-            return {'thread_id': payload.thread_id, 'answer': 'وضعیت عملیات ثبت شد؛ همگام‌سازی گراف نیازمند بررسی است.', 'ui': outcome, 'engine': 'recovery'}
-    except (RuntimeError, LookupError, TimeoutError) as exc:
-        raise HTTPException(409, str(exc)) from exc
-    except PermissionError as exc:
-        raise HTTPException(403, str(exc)) from exc
-)
-
-
-class ChatApprovalRequest(BaseModel):
-    thread_id: str
-    proposal_id: str
-    confirm_project: str
-    approved: bool
-
-
-@app.post('/api/chat/messages')
-def chat_message(request: Request, payload: ChatMessageRequest):
-    actor = credentials(request, payload.mode)
-    try:
-        return chat_service.respond(actor, payload.mode, payload.message,
-                                    payload.thread_id, payload.project, payload.scenario)
-    except (ValueError, PermissionError) as exc:
-        raise HTTPException(403 if isinstance(exc, PermissionError) else 400, str(exc)) from exc
-
-
-@app.post('/api/chat/stream')
-def chat_stream(request: Request, payload: ChatMessageRequest):
-    actor = credentials(request, payload.mode)
-    def iterate():
-        yield 'event: status\ndata: ' + json.dumps({'label': 'در حال تحلیل درخواست و انتخاب ابزار'}) + '\n\n'
-        try:
-            output = chat_service.respond(actor, payload.mode, payload.message,
-                                          payload.thread_id, payload.project, payload.scenario)
-            yield 'event: complete\ndata: ' + json.dumps(output, ensure_ascii=False) + '\n\n'
-        except (ValueError, PermissionError, LiaraError) as exc:
             yield 'event: error\ndata: ' + json.dumps({'detail': str(exc)}, ensure_ascii=False) + '\n\n'
         except Exception:
             yield 'event: error\ndata: ' + json.dumps(
