@@ -342,13 +342,13 @@ def chat_message(request: Request, payload: ChatMessageRequest):
 def chat_stream(request: Request, payload: ChatMessageRequest):
     actor = credentials(request, payload.mode)
     def iterate():
-        yield 'event: status\\ndata: ' + json.dumps({'label': 'در حال تحلیل درخواست و انتخاب ابزار'}) + '\\n\\n'
+        yield 'event: status\ndata: ' + json.dumps({'label': 'در حال تحلیل درخواست و انتخاب ابزار'}) + '\n\n'
         try:
             output = chat_service.respond(actor, payload.mode, payload.message,
                                           payload.thread_id, payload.project, payload.scenario)
-            yield 'event: complete\\ndata: ' + json.dumps(output, ensure_ascii=False) + '\\n\\n'
+            yield 'event: complete\ndata: ' + json.dumps(output, ensure_ascii=False) + '\n\n'
         except (ValueError, PermissionError, LiaraError) as exc:
-            yield 'event: error\\ndata: ' + json.dumps({'detail': str(exc)}, ensure_ascii=False) + '\\n\\n'
+            yield 'event: error\ndata: ' + json.dumps({'detail': str(exc)}, ensure_ascii=False) + '\n\n'
     return StreamingResponse(iterate(), media_type='text/event-stream',
                              headers={'X-Accel-Buffering': 'no', 'Cache-Control': 'no-store'})
 
