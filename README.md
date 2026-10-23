@@ -145,3 +145,10 @@ For a single host, run `cd frontend && npm run build`, then restart FastAPI to s
 The conversational candidate now includes a single-operator Docker Compose + Caddy HTTPS deployment configuration. It is **fail-closed**: a valid 32+-character operator secret, built frontend, writable persistent SQLite volume, and installed LangGraph are required before startup. Caddy gates both UI and API; live Liara writes and CLI execution stay blocked in this profile. No VPS deployment, full browser build or real Liara verification has been performed in this change.
 
 Runbook: [docs/21-private-server-deployment.md](docs/21-private-server-deployment.md). Compose entry: `compose.server.yaml`. Do not expose port 8000 directly or treat this as a multi-user service. Release status remains **NO-GO until full local tests, frontend build, container smoke and private server access checks are green**.
+
+ 
+## Intent-first UX & offline discovery
+
+Conversational routing now uses `sentinel/intent.py` for multilingual multi-label classification, explainable uncertainty and hard safety guards; `sentinel/discovery.py` performs **offline-only** clustering of explicitly consented unknown intent examples, never a write authorization. Typed chat cards support read-only domain/release history, project selection, action/limitation explanations, expiry of approvals, and detection of truncated SSE responses. Golden and integration tests: `tests/test_intent_experience.py`. Matrix and limitations: [docs/23-user-intent-coverage.md](docs/23-user-intent-coverage.md).
+
+**Verification status:** these new tests and the modified frontend have not been executed on the user's machine in this branch; do not merge the draft PR or publish to a public server until fresh tests and a reproducible frontend build pass.
