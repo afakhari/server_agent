@@ -210,6 +210,7 @@ def inspect_node(state: AgentState) -> dict:
             state["actor"], mode, snap["name"], proposal["operation"], snapshot_fingerprint(snap)
         )
         proposal["expires_in_seconds"] = 180
+        proposal["expires_at"] = time.time() + 180
     main = report["hypotheses"][0] if report["hypotheses"] else {}
     answer = ("بررسی اولیه انجام شد. " + main.get("title", "شواهد کافی در دسترس نیست.") +
               "؛ نتیجه براساس شواهد موجود است، نه تشخیص قطعی. " + report.get("recommendation", ""))
