@@ -76,6 +76,11 @@ _ACTIONS = {
     "billing": ("هزینه و پلن", "هزینه و پلن لیارا را چطور بررسی کنم؟"),
     "security": ("دسترسی و امنیت", "درباره مجوزها و امنیت توضیح بده"),
     "env": ("تنظیمات محیطی", "تنظیمات متغیرهای محیطی را چطور بررسی کنم؟"),
+    "database": ("اتصال پایگاه داده", "نحوه بررسی اتصال دیتابیس چیست؟"),
+    "backup": ("پشتیبان‌گیری", "روش امن بکاپ گرفتن از پروژه چیست؟"),
+    "team": ("حساب تیمی", "دسترسی به برنامه‌های تیمی را چطور بررسی کنم؟"),
+    "support": ("دریافت کمک", "چطور به پشتیبانی لیارا مراجعه کنم؟"),
+    "notifications": ("تنظیم هشدار", "آیا می‌توانم هشدار خرابی تنظیم کنم؟"),
 }
 
 # Specific keywords win over generic ones; multi-label classification preserved.
@@ -161,7 +166,11 @@ def classify(message: str) -> Decision:
         return Decision("deploy", "deploy", "clear", tuple(sorted(hits)))
 
     # Mixed *independent* requests require an explicit task selection.
-    read_tasks = hits & {"projects", "releases", "domains", "health", "logs"}
+    read_tasks = hits & {"projects", "releases", "domains", "health", "logs",
+                         "billing", "security", "env", "database", "backup",
+                         "team", "support", "notifications"}
+    if "logs" in read_tasks and "health" in read_tasks:
+        read_tasks.remove("logs")
     if len(read_tasks) > 1:
         ordered = sorted(read_tasks)
         return Decision("multi_intent", "guide", "ambiguous", tuple(sorted(hits)),
