@@ -3,6 +3,7 @@
 Do not treat this as comprehensive DLP: review the source before allowing writes.
 """
 from __future__ import annotations
+import json
 import re
 
 _PROTECTED_NAME = re.compile(
@@ -57,4 +58,47 @@ def suspicious_source(relative_path: str, data: bytes) -> str | None:
         if literal in {"password", "secret", "token", "bearer", "true", "false", "unset"}:
             continue
         return "مقدار احتمالی رمز یا اعتبارنامه به‌صورت ثابت در فایل دیده شد"
+
+    # Structured JSON often stores environment secrets as {key: "...", value: "..."}.
+    # A plain line regex cannot safely detect these without examining the keys.
+    if path.lower().endswith(".json"):
+        try:
+            parsed = json.loads(value)
+        except (ValueError, UnicodeError):
+            return None
+        stack = [parsed]
+        inspected = 0
+        while stack and inspected < 10000:
+            node = stack.pop()
+            inspected += 1
+            if isinstance(node, dict):
+                env_key = node.get("key")
+                env_value = node.get("value")
+                if isinstance(env_key, str) and isinstance(env_value, str):
+                    simple = re.sub(r"[^a-z0-9]", "", env_key.lower())
+                    if any(x in simple for x in ("password", "secret", "token", "apikey",
+                                                "databaseurl", "privatekey", "accesskey")):
+                        lowered = env_value.strip().lower()
+                        if len(lowered) >= 6 and not any(
+                            lowered.startswith(p) for p in _SAFE_EXAMPLES + _SAFE_REFERENCES
+                        ):
+                            return "مقدار محرمانه در ساختار متغیرهای JSON دیده شد"
+                for key, item in node.items():
+                    normalized = re.sub(r"[^a-z0-9]", "", str(key).lower())
+                    if isinstance(item, str) and any(
+                        token in normalized for token in
+                        ("password", "secretkey", "apikey", "accesstoken", "refreshtoken",
+                         "databaseurl", "privatekey", "awssecretaccesskey")
+                    ):
+                        lower = item.strip().lower()
+                        if len(lower) >= 6 and not any(
+                            lower.startswith(p) for p in _SAFE_EXAMPLES + _SAFE_REFERENCES
+                        ):
+                            return "فیلد محرمانه با مقدار ثابت در JSON دیده شد"
+                    if isinstance(item, (dict, list)):
+                        stack.append(item)
+            elif isinstance(node, list):
+                stack.extend(x for x in node if isinstance(x, (dict, list)))
+        if stack:
+            return "ساختار JSON برای بررسی امن بیش از حد پیچیده است"
     return None
