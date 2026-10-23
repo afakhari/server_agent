@@ -109,3 +109,13 @@ against a disposable account. Inspect costs and preview before approval.
 
 ## Team-owned Liara apps (critical for correct account context)
 When the Console shows an app under a **team** but the regular API returns a different personal app, use an explicit team ID from that team's API page. On Windows CMD run `python scripts\run_local.py --mode read --team-id YOUR_TEAM_ID --project YOUR_TEAM_APP_ID` using the server-side bearer token prompt. First verify only read access and the exact target/platform; do not enable writes until the list shows the expected team app. `LIARA_TEAM_ID` is automatically merged into all Liara GET/POST requests including source uploads. Team CLI subprocess mode is deliberately disabled. [Full Persian team runbook](docs/19-team-access.md).
+
+### FastAPI startup safety (2026-10-23)
+The disposable `examples/fastapi-shop` package now includes an explicit
+`liara.json` Uvicorn start command and a `python3 main.py` fallback that
+starts the server on `0.0.0.0:8000` (or `PORT`). This follows the
+official Liara Python guide's default startup behavior and avoids publishing
+a FastAPI definition that never binds an HTTP port. **Important:** after
+`git pull`, open **a fresh deployment preview**: the source SHA256 changes;
+do not confirm a previously issued approval. Liara live publication remains
+unverified pending the operator's disposable test deployment.

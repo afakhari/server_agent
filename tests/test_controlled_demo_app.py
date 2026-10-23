@@ -29,3 +29,30 @@ def test_demo_controlled_failure_and_recovery(monkeypatch):
     monkeypatch.setenv('SENTINEL_DEMO_FLAG', 'ready')
     client = TestClient(load_demo().app)
     assert client.get('/health').status_code == 200
+
+
+def test_liara_fastapi_start_configuration():
+    import json
+    base = Path(__file__).resolve().parents[1] / "examples" / "fastapi-shop"
+    config = json.loads((base / "liara.json").read_text(encoding="utf-8"))
+    assert config["platform"] == "python"
+    assert config["port"] == 8000
+    assert any("uvicorn main:app" in cmd and "--port 8000" in cmd
+               for cmd in config["args"])
+
+
+def test_fallback_python_main_starts_webserver(monkeypatch):
+    import runpy
+    import sys
+    from types import SimpleNamespace
+
+    start = {}
+    def record(app, *, host, port):
+        start.update({"app": app, "host": host, "port": port})
+    monkeypatch.setitem(sys.modules, "uvicorn", SimpleNamespace(run=record))
+    monkeypatch.setenv("PORT", "8000")
+    path = Path(__file__).resolve().parents[1] / "examples" / "fastapi-shop" / "main.py"
+    runpy.run_path(str(path), run_name="__main__")
+    assert start["host"] == "0.0.0.0"
+    assert start["port"] == 8000
+    assert start["app"].title == "Liara Sentinel test application"
