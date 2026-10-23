@@ -40,7 +40,7 @@ def validate_server_config() -> None:
     if profile == 'local':
         return
     access = os.getenv('SENTINEL_ACCESS_KEY', '')
-    if len(access) < 32 or access.isspace() or access.lower() in {
+    if len(access) < 32 or len(set(access)) < 16 or access.upper().startswith('REPLACE_') or access.isspace() or access.lower() in {
         'change-me', 'changeme', 'your-secret', 'your-key',
     }:
         raise RuntimeError('حالت سرور نیازمند کلید Sentinel تصادفی حداقل ۳۲ نویسه است')
