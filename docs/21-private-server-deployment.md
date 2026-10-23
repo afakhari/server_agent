@@ -52,12 +52,17 @@ hash چاپ‌شده را در `SENTINEL_BASIC_AUTH_HASH` داخل `deploy/serve
 ```bash
 python -m pytest -q
 cd frontend
-npm install
+npm install --package-lock-only
+npm ci
 npm run build
 cd ..
+# Save and commit frontend/package-lock.json before building the release image.
+python scripts/check_server_release.py
 docker compose -f compose.server.yaml config --quiet
 docker compose -f compose.server.yaml build
 ```
+
+فایل `frontend/package-lock.json` هنوز در این شاخه تولید و commit نشده است؛ تولید واقعی آن به npm با دسترسی به registry نیاز دارد. Dockerfile عمداً از `npm ci` استفاده می‌کند و **تا آماده‌شدن lockfile معتبر، build انتشار متوقف می‌شود**. `scripts/check_server_release.py` همین وضعیت و نبود فایل‌های secret غیرفرضی را با exit code غیرصفر گزارش می‌کند.
 
 خطا در **هر یک** از موارد بالا یعنی انتشار متوقف می‌شود. چون `config` در حالت verbose می‌تواند envها را چاپ کند، تنها `--quiet` را اجرا کنید. در CI نیز وابستگی‌ها و lockfile باید قبل از انتشار قابل تکرار باشند.
 
