@@ -275,6 +275,12 @@ def validate_team_id(value):
     """Accept a constrained team identifier; CLI uses ?teamID=<id>."""
     if value is None or value == '':
         return ''
+    if isinstance(value, str) and value.strip().upper() in {
+        'TEAM_ID', 'YOUR_TEAM_ID', 'YOUR_REAL_TEAM_ID',
+        'TEAM_ID_FROM_CONSOLE', 'YOUR_TEAM_ID_FROM_CONSOLE'
+    }:
+        raise LiaraError(
+            'TEAM_ID صرفاً مثال است؛ شناسه واقعی تیم را از پایین صفحه API کنسول لیارا جایگزین کنید')
     if not isinstance(value, str) or not TEAM_ID.fullmatch(value):
         raise LiaraError('شناسه تیم نامعتبر است؛ آن را از صفحه API همان تیم کپی کنید')
     return value

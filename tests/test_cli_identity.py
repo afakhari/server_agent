@@ -56,3 +56,19 @@ def test_launcher_safe_modes():
     assert choices('read',None)==(True,False)
     with pytest.raises(ValueError): choices('test-cli',None)
     with pytest.raises(ValueError): choices('test-api','../bad')
+
+def test_direct_script_imports_repo_package(monkeypatch):
+    # The Windows CMD form calls the script directly rather than with -m.
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+    root=Path(__file__).resolve().parents[1]
+    result=subprocess.run([
+        sys.executable, str(root/'scripts'/'run_local.py'), '--mode', 'read',
+        '--team-id', 'TEAM_ID', '--project', 'sentinel-sandbox-01',
+    ],cwd=root,stdin=subprocess.DEVNULL,capture_output=True,text=True,timeout=10)
+    assert result.returncode == 2
+    output=result.stderr+result.stdout
+    assert 'No module named' not in output
+    assert 'TEAM_ID' in output

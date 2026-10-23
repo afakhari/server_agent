@@ -61,3 +61,17 @@ python scripts\run_local.py --mode read --team-id TEAM_ID_FROM_CONSOLE --project
 ## آزمون‌های کد بدون لیارا
 
 `tests/test_liara.py` شامل fixture تیمی ساختگی برای GET projects، logs، releases و آپلود multipart است؛ `tests/test_security.py` تفکیک fingerprint مجوزهای تیم/شخصی را بررسی می‌کند. هیچ شناسه تیم واقعی در fixture وجود ندارد. تست زنده این تغییر هنوز انجام نشده است؛ CI نیز به‌درخواست مالک اضافه نشده است.
+
+## اصلاح خطای Windows CMD: No module named sentinel
+اگر با `python scripts\\run_local.py --mode read --team-id TEAM_ID ...`
+خطای `Preflight failed: No module named 'sentinel'` گرفتی، این خطا ناشی از
+Python import path در اجرای مستقیم فایل از پوشه `scripts` بوده است و
+با اضافه‌کردن پوشه ریشه پروژه به `sys.path` برطرف شد.
+
+پس از `git pull origin main` هر دو روش زیر معتبرند:
+- `python scripts\\run_local.py --mode read --team-id REAL_TEAM_ID --project sentinel-sandbox-01`
+- `python -m scripts.run_local --mode read --team-id REAL_TEAM_ID --project sentinel-sandbox-01`
+
+`REAL_TEAM_ID` را **با مقدار واقعی پایین صفحه API تیم** جایگزین کن.
+نوشتن خود `TEAM_ID` یا `REAL_TEAM_ID` به‌جای مقدار واقعی، مجاز نیست.
+برای دسترسی به تیم ممکن است توکن فعلی کافی باشد؛ ابتدا فقط Read را بررسی کن.

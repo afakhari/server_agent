@@ -142,3 +142,10 @@ def test_personal_team_scope_absent_and_input_validation(monkeypatch):
     assert 'teamID' not in calls[0].params
     with pytest.raises(LiaraError):
         LiaraClient(token='fake', team_id='../unsafe')
+
+def test_team_id_examples_must_be_replaced_with_real_id():
+    from sentinel.liara import validate_team_id, LiaraError
+    for example in ('TEAM_ID','YOUR_TEAM_ID','TEAM_ID_FROM_CONSOLE'):
+        with pytest.raises(LiaraError, match='صرفاً مثال'):
+            validate_team_id(example)
+    assert validate_team_id('0123456789abcdef01234567') == '0123456789abcdef01234567'
