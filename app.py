@@ -9,7 +9,8 @@ import os
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from sentinel.engine import diagnose, mock_snapshot
@@ -91,7 +92,11 @@ def fail_from_approval(exc):
 
 @app.get('/')
 def home():
-    return FileResponse(ROOT / 'static' / 'index.html')
+    built = ROOT / 'frontend' / 'dist' / 'index.html'
+    return FileResponse(built if built.is_file() else ROOT / 'static' / 'index.html')
+
+if (ROOT / 'frontend' / 'dist' / 'assets').is_dir():
+    app.mount('/assets', StaticFiles(directory=ROOT / 'frontend' / 'dist' / 'assets'), name='frontend-assets')
 
 @app.get('/api/config')
 def config():
@@ -302,3 +307,91 @@ def deployment_status(request: Request, project: str):
         'health_observation': observed, 'judgment': judgment,
         'note': 'یک HTTP 200 یا وضعیت آماده نسخه، به‌تنهایی اثبات بازیابی پایدار نیست.'
     }
+
+
+# Conversational API: graph tools are read-only; writes stay behind existing policies.
+from sentinel import conversation as chat_service
+
+
+class ChatMessageRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=3000)
+    thread_id: str | None = None
+    mode: str = 'demo'
+    project: str | None = None
+    scenario: str = 'transient'
+
+
+class ChatApprovalRequest(BaseModel):
+    thread_id: str
+    proposal_id: str
+    confirm_project: str
+    approved: bool
+
+
+@app.post('/api/chat/messages')
+def chat_message(request: Request, payload: ChatMessageRequest):
+    actor = credentials(request, payload.mode)
+    try:
+        return chat_service.respond(actor, payload.mode, payload.message,
+                                    payload.thread_id, payload.project, payload.scenario)
+    except (ValueError, PermissionError) as exc:
+        raise HTTPException(403 if isinstance(exc, PermissionError) else 400, str(exc)) from exc
+
+
+@app.post('/api/chat/stream')
+def chat_stream(request: Request, payload: ChatMessageRequest):
+    actor = credentials(request, payload.mode)
+    def iterate():
+        yield 'event: status\\ndata: ' + json.dumps({'label': 'در حال تحلیل درخواست و انتخاب ابزار'}) + '\\n\\n'
+        try:
+            output = chat_service.respond(actor, payload.mode, payload.message,
+                                          payload.thread_id, payload.project, payload.scenario)
+            yield 'event: complete\\ndata: ' + json.dumps(output, ensure_ascii=False) + '\\n\\n'
+        except (ValueError, PermissionError, LiaraError) as exc:
+            yield 'event: error\\ndata: ' + json.dumps({'detail': str(exc)}, ensure_ascii=False) + '\\n\\n'
+    return StreamingResponse(iterate(), media_type='text/event-stream',
+                             headers={'X-Accel-Buffering': 'no', 'Cache-Control': 'no-store'})
+
+
+@app.get('/api/chat/threads')
+def chat_threads(request: Request):
+    actor = credentials(request, 'live' if os.getenv('SENTINEL_ACCESS_KEY') else 'demo')
+    return {'threads': chat_service.list_threads(actor)}
+
+
+@app.get('/api/chat/threads/{thread_id}')
+def chat_thread(request: Request, thread_id: str):
+    actor = credentials(request, 'live' if os.getenv('SENTINEL_ACCESS_KEY') else 'demo')
+    try:
+        return chat_service.thread_data(actor, thread_id)
+    except PermissionError as exc:
+        raise HTTPException(403, str(exc)) from exc
+
+
+@app.post('/api/chat/approval')
+def chat_approval(request: Request, payload: ChatApprovalRequest):
+    actor = credentials(request, 'live' if os.getenv('SENTINEL_ACCESS_KEY') else 'demo')
+    try:
+        thread = chat_service.thread_data(actor, payload.thread_id)
+        # Proposal must belong to this exact thread; the model cannot invent approvals.
+        valid = any(m['role'] == 'assistant' and
+                    any(p.get('proposal_id') == payload.proposal_id
+                        for p in m['ui'].get('report', {}).get('proposals', []))
+                    for m in thread['messages'])
+        if not valid:
+            raise PermissionError('این عملیات متعلق به گفت‌وگوی جاری نیست.')
+        if payload.approved:
+            execution = approve(request, ApproveRequest(
+                proposal_id=payload.proposal_id, confirm_project=payload.confirm_project))
+        else:
+            execution = None
+        try:
+            return chat_service.resume(payload.thread_id, execution)
+        except Exception:
+            # A successful mutation must never be retried because UI checkpoint failed.
+            outcome = {'type': 'execution', 'result': execution} if execution else {'type': 'notice', 'text': 'عملیات لغو شد.'}
+            chat_service.add_message(payload.thread_id, 'assistant',
+                                     'وضعیت عملیات ثبت شد؛ همگام‌سازی گراف نیازمند بررسی است.', outcome)
+            return {'thread_id': payload.thread_id, 'answer': 'وضعیت عملیات ثبت شد؛ همگام‌سازی گراف نیازمند بررسی است.', 'ui': outcome, 'engine': 'recovery'}
+    except PermissionError as exc:
+        raise HTTPException(403, str(exc)) from exc
