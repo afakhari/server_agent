@@ -187,3 +187,59 @@ def test_demo_domain_read_makes_no_live_api_calls(monkeypatch, tmp_path):
         }).json()
     assert answer["ui"]["type"] == "guidance"
     assert "واقعی" in answer["answer"]
+
+
+
+def test_missing_live_project_requests_selection_without_liara_call(monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTINEL_DB_PATH", str(tmp_path / "project-picker.sqlite3"))
+    monkeypatch.setattr(conversation, "_GRAPH", None)
+    def no_client():
+        raise AssertionError("must ask for target project before connecting")
+    monkeypatch.setattr(conversation, "LiaraClient", no_client)
+    result = conversation.respond(
+        "validated-operator", "live", "وضعیت پروژه را بررسی کن"
+    )
+    assert result["ui"]["type"] == "project_picker"
+    assert "پروژه" in result["answer"]
+
+
+def test_private_server_live_read_only_never_issues_restart_proposal(monkeypatch):
+    from sentinel.engine import mock_snapshot
+
+    monkeypatch.setenv("SENTINEL_EXPOSURE_MODE", "private-server")
+    monkeypatch.setenv("SENTINEL_ALLOW_LIVE_WRITES", "true")
+    monkeypatch.setenv("LIARA_API_TOKEN", "dummy-value")
+    monkeypatch.setenv("SENTINEL_ALLOWED_PROJECTS", "demo-shop")
+
+    class FakeClient:
+        def __enter__(self):
+            return self
+        def __exit__(self, *_):
+            return False
+        def snapshot(self, project):
+            assert project == "demo-shop"
+            return mock_snapshot("transient")
+
+    monkeypatch.setattr(conversation, "LiaraClient", FakeClient)
+    def forbidden_approval(*args, **kwargs):
+        raise AssertionError("never issue a write approval on read-only server")
+    monkeypatch.setattr(conversation, "create_approval", forbidden_approval)
+    outcome = conversation.inspect_node({
+        "text": "خطای 500", "actor": "operator",
+        "mode": "live", "project": "demo-shop"
+    })
+    assert outcome["awaiting_approval"] is False
+    assert not outcome["ui"]["report"]["proposals"]
+    assert any("غیرفعال" in item for item in outcome["ui"]["report"]["limitations"])
+
+
+def test_independent_goals_do_not_call_any_live_adapter(monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTINEL_DB_PATH", str(tmp_path / "multi-intent.sqlite3"))
+    monkeypatch.setattr(conversation, "_GRAPH", None)
+    def no_client():
+        raise AssertionError("ambiguous requests must not query live services")
+    monkeypatch.setattr(conversation, "LiaraClient", no_client)
+    answer = conversation.respond("operator", "live", "هزینه و وضعیت SSL دامنه")
+    assert answer["ui"]["type"] == "guidance"
+    assert answer["ui"]["certainty"] == "ambiguous"
+    assert len(answer["ui"]["actions"]) >= 2
