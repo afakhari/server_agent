@@ -1,5 +1,6 @@
 """Focused optional CLI transport checks: local only, no Liara network."""
 from pathlib import Path
+import os
 import pytest
 from sentinel import cli
 from sentinel.deployer import DeployError
@@ -27,20 +28,35 @@ def test_default_deny(monkeypatch):
 def test_no_api_token_passed_to_subprocess(monkeypatch, tmp_path):
     home = configure_cli(monkeypatch, tmp_path)
     monkeypatch.setenv('LIARA_API_TOKEN', 'SENSITIVE_HTTP_TOKEN')
-    actual = cli.subprocess.run
+    # Verify the subprocess boundary without executing a POSIX shell script
+    # on Windows. The test is about environment/argument isolation.
     seen = {}
     def capture(argv, **kwargs):
         seen['argv'] = argv
         seen['env'] = kwargs['env']
         seen['shell'] = kwargs['shell']
-        return actual(argv, **kwargs)
+        seen['stdin'] = kwargs['stdin']
+        return cli.subprocess.CompletedProcess(
+            argv, returncode=0, stdout='@liara/cli/9.6.0\n', stderr=''
+        )
     monkeypatch.setattr(cli.subprocess, 'run', capture)
     result = cli.invoke(['--version'], timeout=4)
     assert result.returncode == 0
+    assert result.stdout.strip() == '@liara/cli/9.6.0'
+    assert seen['argv'] == [str(tmp_path / 'liara'), '--version']
+    assert seen['stdin'] == cli.subprocess.DEVNULL
     assert seen['env']['HOME'] == str(home)
     assert 'LIARA_API_TOKEN' not in seen['env']
     assert 'SENSITIVE_HTTP_TOKEN' not in str(seen['argv'])
     assert seen['shell'] is False
+
+
+@pytest.mark.skipif(os.name != 'posix', reason='Fixture is a POSIX /bin/sh script')
+def test_posix_cli_stub_can_be_launched_without_shell(monkeypatch, tmp_path):
+    configure_cli(monkeypatch, tmp_path)
+    result = cli.invoke(['--version'], timeout=4)
+    assert result.returncode == 0
+    assert result.stdout.strip() == '@liara/cli/9.6.0'
 
 
 def test_cli_approval_binds_project_and_content(monkeypatch, tmp_path):
