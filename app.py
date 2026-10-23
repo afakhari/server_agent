@@ -4,6 +4,7 @@ All real modifications are restricted to explicitly allowlisted disposable proje
 This is a local evaluation server, not a production multi-user SaaS.
 """
 import hashlib
+import importlib.util
 import json
 import os
 from contextlib import asynccontextmanager
@@ -51,6 +52,10 @@ def validate_server_config() -> None:
     db = Path(os.getenv('SENTINEL_DB_PATH', ''))
     if not db.is_absolute() or str(db) in ('/', ''):
         raise RuntimeError('SENTINEL_DB_PATH باید فایل مطلق داخل volume دائمی باشد')
+    if not db.parent.is_dir() or not os.access(db.parent, os.W_OK | os.X_OK):
+        raise RuntimeError('مسیر volume دیتابیس موجود یا قابل نوشتن نیست')
+    if importlib.util.find_spec('langgraph') is None:
+        raise RuntimeError('LangGraph روی سرور نصب نیست؛ fallback برای استقرار سرور مجاز نیست')
     if not (ROOT / 'frontend' / 'dist' / 'index.html').is_file():
         raise RuntimeError('نسخه production فرانت‌اند ساخته نشده است؛ npm run build لازم است')
     if not (ROOT / 'frontend' / 'dist' / 'assets').is_dir():
@@ -60,6 +65,13 @@ def validate_server_config() -> None:
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     validate_server_config()
+    if os.getenv('SENTINEL_EXPOSURE_MODE') == 'private-server':
+        from sentinel.security import session
+        from sentinel.conversation import db_session
+        with session() as conn:
+            conn.execute('SELECT 1')
+        with db_session() as conn:
+            conn.execute('SELECT 1')
     yield
 
 
