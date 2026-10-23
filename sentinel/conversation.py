@@ -86,9 +86,12 @@ def thread_data(actor: str, thread_id: str) -> dict:
                            (thread_id, actor)).fetchone()
         if row is None:
             raise PermissionError("گفت‌وگو پیدا نشد یا مجوز ندارید.")
+        # Return the *latest* 250, not the earliest 250. The approval route
+        # must never evaluate an obsolete card as the latest turn.
         entries = conn.execute("""SELECT seq,role,content,ui,created_at
-            FROM chat_messages WHERE thread_id=? ORDER BY seq ASC LIMIT 250""",
+            FROM chat_messages WHERE thread_id=? ORDER BY seq DESC LIMIT 250""",
             (thread_id,)).fetchall()
+    entries = list(reversed(entries))
     return {
         "id": row["id"], "mode": row["mode"], "project": row["project"],
         "messages": [{"id": str(e["seq"]), "role": e["role"], "content": e["content"],
