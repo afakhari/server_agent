@@ -37,9 +37,10 @@ ROOT = Path(__file__).resolve().parent
 
 
 def validate_server_config() -> None:
-    """Fail closed before binding a private staging service.
+    """Fail closed before binding the competition showcase.
 
-    The reverse proxy MUST authenticate users. This is not multi-tenant.
+    Public demo visitors are isolated; live infrastructure credentials and
+    mutations remain restricted server-side. This is not multi-tenant SaaS.
     """
     profile = os.getenv('SENTINEL_EXPOSURE_MODE', 'local')
     if profile not in ('local', 'private-server'):
