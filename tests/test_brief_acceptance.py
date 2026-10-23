@@ -133,3 +133,31 @@ def test_inspection_report_contains_human_review_only_coding_handoff(monkeypatch
     report = result.json()
     assert report["coding_handoff"]["status"] == "HUMAN_REVIEW_REQUIRED"
     assert report["coding_handoff"]["integration"] == "MANUAL_COPY_ONLY"
+
+
+def test_live_raw_metrics_are_evidence_not_invented_percentages():
+    snapshot = mock_snapshot("healthy")
+    snapshot["mode"] = "live"
+    snapshot["derived_metrics"] = {}
+    snapshot["raw_metrics"] = {
+        "cpuUsage": 245, "memoryUsage": 1048576,
+        "disksUsage": "18.5", "malicious": "TOKEN=shouldneverreach"
+    }
+    report = diagnose(snapshot)
+    raw = [e for e in report["evidence"] if e["kind"] == "metric_raw"]
+    assert len(raw) == 3
+    assert not any("cpu_pct" in row["text"] or "memory_pct" in row["text"]
+                   for row in raw)
+    assert all("تأیید نشده" in row["text"] for row in raw)
+    assert "shouldneverreach" not in str(report)
+
+
+def test_raw_metric_objects_not_exposed_as_untrusted_serialized_text():
+    snapshot = mock_snapshot("healthy")
+    snapshot["raw_metrics"] = {
+        "cpuUsage": {"Authorization": "Bearer SENSITIVEEXAMPLE12345"},
+        "memoryUsage": [1, 2, 3],
+    }
+    report = diagnose(snapshot)
+    assert not any(row["kind"] == "metric_raw" for row in report["evidence"])
+    assert "SENSITIVEEXAMPLE" not in str(report)
