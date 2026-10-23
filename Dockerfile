@@ -1,8 +1,9 @@
 # Staging-only, single-operator image. No credentials or sources of target apps baked in.
 FROM node:22-alpine AS frontend-build
 WORKDIR /build/frontend
-COPY frontend/package*.json ./
-RUN npm install --no-audit --no-fund
+# Require a committed lockfile: the server image must use reproducible dependencies.
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci --no-audit --no-fund
 COPY frontend/ ./
 RUN npm run build
 
