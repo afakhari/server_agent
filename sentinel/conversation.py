@@ -45,6 +45,12 @@ def connect():
         FOREIGN KEY(thread_id) REFERENCES chat_threads(id)
     )""")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_chat_messages_thread ON chat_messages(thread_id,seq)")
+    conn.execute("""CREATE TABLE IF NOT EXISTS chat_requests (
+        actor TEXT NOT NULL, request_id TEXT NOT NULL,
+        payload_hash TEXT NOT NULL, state TEXT NOT NULL,
+        result_json TEXT, created_at REAL NOT NULL,
+        PRIMARY KEY(actor, request_id)
+    )""")
     return conn
 
 
@@ -113,6 +119,42 @@ def add_message(thread_id: str, role: str, content: str, ui: dict | None = None)
         conn.execute("INSERT INTO chat_messages(thread_id,role,content,ui,created_at) VALUES (?,?,?,?,?)",
                      (thread_id, role, content[:5000], json.dumps(ui or {}, ensure_ascii=False), time.time()))
         conn.execute("UPDATE chat_threads SET updated_at=? WHERE id=?", (time.time(), thread_id))
+
+
+def begin_request(actor: str, request_id: str, payload: dict) -> dict | None:
+    """Atomically reserve one request execution per actor and request_id.
+
+    An abandoned in-flight request never runs again automatically. The
+    operator can inspect chat history rather than risk a duplicate action.
+    """
+    digest = hashlib.sha256(json.dumps(
+        payload, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+    with _LOCK, db_session() as conn:
+        cursor = conn.execute(
+            "INSERT OR IGNORE INTO chat_requests "
+            "(actor,request_id,payload_hash,state,result_json,created_at) "
+            "VALUES (?,?,?,?,?,?)",
+            (actor, request_id, digest, "processing", None, time.time()))
+        if cursor.rowcount == 1:
+            return None
+        row = conn.execute(
+            "SELECT payload_hash,state,result_json FROM chat_requests "
+            "WHERE actor=? AND request_id=?", (actor, request_id)).fetchone()
+        if row["payload_hash"] != digest:
+            raise RuntimeError("شناسه درخواست با پیام دیگری استفاده شده است؛ عملیات اجرا نشد.")
+        if row["state"] == "completed" and row["result_json"]:
+            return json.loads(row["result_json"])
+        raise RuntimeError(
+            "این درخواست قبلاً دریافت شده و نتیجه آن هنوز قطعی نیست. "
+            "تاریخچه گفت‌وگو را بررسی کنید؛ برای جلوگیری از تکرار، مجدداً اجرا نمی‌شود."
+        )
+
+
+def finish_request(actor: str, request_id: str, result: dict) -> None:
+    with _LOCK, db_session() as conn:
+        conn.execute("UPDATE chat_requests SET state='completed',result_json=? "
+                     "WHERE actor=? AND request_id=? AND state='processing'",
+                     (json.dumps(result, ensure_ascii=False), actor, request_id))
 
 
 def detect_intent(message: str) -> str:
@@ -399,11 +441,21 @@ def invoke(state: AgentState, thread_id: str) -> dict:
 
 
 def respond(actor: str, mode: str, text: str, thread_id: str | None = None,
-            project: str | None = None, scenario: str = "transient") -> dict:
+            project: str | None = None, scenario: str = "transient",
+            request_id: str | None = None) -> dict:
     if not 1 <= len(text.strip()) <= 3000:
         raise ValueError("طول پیام باید بین ۱ و ۳۰۰۰ نویسه باشد.")
     if scenario not in {"transient", "env", "memory", "release", "healthy"}:
         raise ValueError("سناریوی نامعتبر.")
+    if request_id:
+        if not re.fullmatch(r"[A-Za-z0-9_-]{16,128}", request_id):
+            raise ValueError("شناسه درخواست نامعتبر است.")
+        replay = begin_request(actor, request_id, {
+            "mode": mode, "thread_id": thread_id, "project": project,
+            "scenario": scenario, "text": text,
+        })
+        if replay is not None:
+            return replay
     # Never persist a pasted credential or forward it to a model.
     safe_text, redacted = redact_secrets(text.strip())
     sensitive = redacted
@@ -421,8 +473,11 @@ def respond(actor: str, mode: str, text: str, thread_id: str | None = None,
               "actions": [{"label": "راهنمای امنیت", "prompt": "روش امن تنظیم‌کردن توکن چیست؟"}],
               "limitations": ["هیچ عملیاتی انجام نشده است."]}
         add_message(identifier, "assistant", answer, ui)
-        return {"thread_id": identifier, "answer": answer, "ui": ui,
-                "engine": "privacy-guard", "awaiting_approval": False}
+        safe_result = {"thread_id": identifier, "answer": answer, "ui": ui,
+                       "engine": "privacy-guard", "awaiting_approval": False}
+        if request_id:
+            finish_request(actor, request_id, safe_result)
+        return safe_result
     if mode == "demo" and scenario == "transient":
         lowered = text.lower()
         if re.search(r"رم|حافظه|memory|\\bram\\b|oom", lowered):
@@ -458,7 +513,10 @@ def respond(actor: str, mode: str, text: str, thread_id: str | None = None,
             with db_session() as conn:
                 conn.execute("UPDATE chat_threads SET project=? WHERE id=?",
                              (actual_project, identifier))
-    return {"thread_id": identifier, **result}
+    response = {"thread_id": identifier, **result}
+    if request_id:
+        finish_request(actor, request_id, response)
+    return response
 
 
 def resume(thread_id: str, result: dict | None) -> dict:
