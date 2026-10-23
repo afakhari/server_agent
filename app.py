@@ -14,6 +14,9 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from typing import Literal
+
+from sentinel.onboarding import AssessmentInput, assess as assess_onboarding
 
 from sentinel.engine import diagnose, mock_snapshot
 from sentinel.health import verify_http
@@ -130,6 +133,11 @@ class ScoutRequest(BaseModel):
     path: str = Field(min_length=1, max_length=200)
 
 
+class OnboardingAssessmentRequest(AssessmentInput):
+    mode: Literal['demo', 'live'] = 'demo'
+    path: str | None = Field(default=None, max_length=200)
+
+
 def credentials(request: Request, mode: str):
     try:
         return actor_digest(request.headers.get('X-Sentinel-Access-Key'), mode)
@@ -209,6 +217,10 @@ def inspect(request: Request, payload: InspectRequest):
         raise HTTPException(502, str(exc)) from exc
     report = diagnose(snap)
     report['ai_commentary'] = narrative(report)
+    if payload.mode == 'live' and not live_writes_permitted(snap['name']):
+        if report['proposals']:
+            report['proposals'] = []
+            report['limitations'].append('اجرای عملیات روی این سرور فعال نیست؛ گزارش فقط برای بررسی است.')
     for proposal in report['proposals']:
         proposal['proposal_id'] = create_approval(actor, payload.mode, snap['name'],
                                                   proposal['operation'], fp(snap))
@@ -282,6 +294,28 @@ def scout_workspace(request: Request, payload: ScoutRequest):
                 'disclaimer': 'این مرحله دیپلوی واقعی انجام نمی‌دهد.'}
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
+
+
+@app.post('/api/onboarding/assess')
+def onboarding_assess(request: Request, payload: OnboardingAssessmentRequest):
+    """Read-only onboarding. No prices/plan IDs are inferred or operations submitted."""
+    credentials(request, payload.mode)
+    try:
+        if payload.mode == 'demo':
+            root = ROOT / 'examples' / 'fastapi-shop'
+        else:
+            if not payload.path:
+                raise ValueError('برای تحلیل سورس واقعی، مسیر پروژه در فضای کاری مجاز لازم است')
+            root = repo_from_workspace(payload.path)
+        inspection = inspect_repo(root)
+        details = AssessmentInput.model_validate(payload.model_dump(
+            exclude={'mode', 'path'}))
+        result = assess_onboarding(inspection, details)
+        result['mode'] = payload.mode
+        result['source'] = 'synthetic-demo' if payload.mode == 'demo' else 'local-workspace'
+        return result
+    except (ValueError, OSError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.post('/api/deploy/plan')
