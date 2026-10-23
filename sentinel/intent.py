@@ -158,16 +158,16 @@ def classify(message: str) -> Decision:
                         "درخواست شما را توضیحی در نظر گرفتم. هیچ عملیاتی اجرا یا برای تأیید ارسال نمی‌شود.")
 
     # Checking an earlier deployment is not requesting another deployment.
-    if "deploy" in hits and _has(t,
+    if "incident" not in hits and "deploy" in hits and _has(t,
             r"(?:وضعیت|آخرین|تاریخچه|نتیجه|موفق شد|چه شد).{0,32}(?:دیپلوی|دپلوی|استقرار|انتشار|deploy)",
             r"(?:دیپلوی|دپلوی|استقرار|انتشار|deploy).{0,32}(?:چه شد|موفق شد|وضعیت|نتیجه)"):
         return Decision("releases", "releases", "clear", tuple(sorted(hits)))
     # Pricing questions about deployment must not open a write-oriented wizard.
-    if "deploy" in hits and "billing" in hits and _has(t, r"چقدر", r"هزینه", r"قیمت", r"\bcost\b", r"\bprice\b") and not _has(
+    if "incident" not in hits and "deploy" in hits and "billing" in hits and _has(t, r"چقدر", r"هزینه", r"قیمت", r"\bcost\b", r"\bprice\b") and not _has(
             t, r"منتشر کن", r"دیپلوی کن", r"استقرار بده", r"\bdeploy it\b"):
         return Decision("billing", "guide", "clear", tuple(sorted(hits)))
     # Domain setup/how-to is not the same as an authorized DNS mutation.
-    if "domains" in hits and _has(t, r"چطور", r"چگونه", r"وصل کنم", r"تنظیم کنم", r"\bhow to\b"):
+    if "incident" not in hits and "domains" in hits and _has(t, r"چطور", r"چگونه", r"وصل کنم", r"تنظیم کنم", r"\bhow to\b"):
         return Decision("domain_setup", "guide", "clear", tuple(sorted(hits)))
     # Emergency signals and log text are evidence requests, not deployment.
     if "notifications" in hits and _has(t, r"وقتی", r"هر وقت", r"به محض", r"\bif\b"):
