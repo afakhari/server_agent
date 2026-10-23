@@ -6,6 +6,7 @@ This is a local evaluation server, not a production multi-user SaaS.
 import hashlib
 import json
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
@@ -26,15 +27,67 @@ from sentinel.security import (
 )
 
 ROOT = Path(__file__).resolve().parent
-app = FastAPI(title='Liara Sentinel', version='0.2.0', description='Evidence-first, human-approved operations')
+
+
+def validate_server_config() -> None:
+    """Fail closed before binding a private staging service.
+
+    The reverse proxy MUST authenticate users. This is not multi-tenant.
+    """
+    profile = os.getenv('SENTINEL_EXPOSURE_MODE', 'local')
+    if profile not in ('local', 'private-server'):
+        raise RuntimeError('SENTINEL_EXPOSURE_MODE نامعتبر است')
+    if profile == 'local':
+        return
+    access = os.getenv('SENTINEL_ACCESS_KEY', '')
+    if len(access) < 32 or access.isspace() or access.lower() in {
+        'change-me', 'changeme', 'your-secret', 'your-key',
+    }:
+        raise RuntimeError('حالت سرور نیازمند کلید Sentinel تصادفی حداقل ۳۲ نویسه است')
+    if os.getenv('SENTINEL_ALLOW_LIVE_WRITES', '').lower() == 'true':
+        raise RuntimeError('عملیات نوشتنی لیارا روی سرور آزمایشی خصوصی غیرفعال باید بماند')
+    if os.getenv('SENTINEL_CLI_DEPLOY_ENABLED', '').lower() == 'true':
+        raise RuntimeError('انتشار CLI در حالت سرور آزمایشی خصوصی مجاز نیست')
+    db = Path(os.getenv('SENTINEL_DB_PATH', ''))
+    if not db.is_absolute() or str(db) in ('/', ''):
+        raise RuntimeError('SENTINEL_DB_PATH باید فایل مطلق داخل volume دائمی باشد')
+    if not (ROOT / 'frontend' / 'dist' / 'index.html').is_file():
+        raise RuntimeError('نسخه production فرانت‌اند ساخته نشده است؛ npm run build لازم است')
+    if not (ROOT / 'frontend' / 'dist' / 'assets').is_dir():
+        raise RuntimeError('فایل‌های static فرانت‌اند موجود نیستند')
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    validate_server_config()
+    yield
+
+
+app = FastAPI(
+    title='Liara Sentinel', version='0.3.0',
+    description='Evidence-first, human-approved operations',
+    lifespan=lifespan,
+)
 
 @app.middleware('http')
 async def secure_headers(request: Request, call_next):
     response = await call_next(request)
     response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
     response.headers['Referrer-Policy'] = 'no-referrer'
     response.headers['Cache-Control'] = 'no-store'
-    response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; frame-ancestors 'none'"
+    if os.getenv('SENTINEL_EXPOSURE_MODE') == 'private-server':
+        response.headers['Content-Security-Policy'] = (
+            "default-src 'self'; base-uri 'none'; form-action 'self'; "
+            "script-src 'self'; style-src 'self'; img-src 'self' data:; "
+            "font-src 'self'; connect-src 'self'; object-src 'none'; frame-ancestors 'none'"
+        )
+    else:
+        response.headers['Content-Security-Policy'] = (
+            "default-src 'self'; script-src 'self' 'unsafe-inline'; "
+            "style-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; frame-ancestors 'none'"
+        )
     return response
 
 class InspectRequest(BaseModel):
@@ -89,6 +142,12 @@ def fail_from_approval(exc):
     mapping = {LookupError: 404, PermissionError: 403, RuntimeError: 409,
                TimeoutError: 410, ValueError: 409}
     return HTTPException(mapping.get(type(exc), 400), str(exc))
+
+@app.get('/healthz', include_in_schema=False)
+def healthz():
+    """Internal liveness probe: no credentials, token checks or upstream calls."""
+    return {'status': 'ok'}
+
 
 @app.get('/')
 def home():
