@@ -15,7 +15,7 @@ Workload = Literal["web", "static", "worker", "unknown"]
 class AssessmentInput(BaseModel):
     traffic: Traffic = "unknown"
     workload: Workload = "unknown"
-    needs_database: bool = False
+    needs_database: bool | None = None
     custom_domain: bool = False
     uptime_critical: bool = False
     existing_app: bool = True
@@ -43,6 +43,8 @@ def assess(inspection: dict, req: AssessmentInput) -> dict:
     env_names = list(inspection.get("required_env_names") or [])
     if env_names:
         warnings.append("متغیرهای محیطی لازم را به‌صورت امن در پنل لیارا مقداردهی کنید؛ مقادیر را در چت نفرستید.")
+    if req.needs_database is None:
+        warnings.append("نیاز به دیتابیس هنوز معلوم نیست؛ قبل از استقرار وابستگی‌های برنامه را بررسی کنید.")
     if req.needs_database and not any(
         key in env_names for key in ("DATABASE_URL", "REDIS_URL", "POSTGRES_URL", "MYSQL_URL")
     ):
