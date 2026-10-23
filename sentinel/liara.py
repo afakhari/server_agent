@@ -46,7 +46,16 @@ class LiaraClient:
                 raise LiaraError('حجم پاسخ API بیش از سقف مجاز است')
             return response.json() if response.content else {}
         except httpx.HTTPStatusError as exc:
-            raise LiaraError(f'Liara HTTP {exc.response.status_code}') from exc
+            status = exc.response.status_code
+            # Expose only the endpoint path and HTTP status, never token or response body.
+            route = str(exc.request.url.path)
+            if status == 404 and method.upper() == 'GET' and route.startswith('/v1/projects/'):
+                hint = '؛ برنامه در حساب متصل پیدا نشد. نام را از فهرست برنامه‌های قابل دسترسی انتخاب کنید'
+            elif status == 404 and route == '/v1/projects':
+                hint = '؛ فهرست برنامه‌ها هم 404 برگرداند: مسیر API/دسترسی حساب نیاز به بررسی دارد'
+            else:
+                hint = ''
+            raise LiaraError(f'Liara HTTP {status}: {method.upper()} {route}{hint}') from exc
         except (httpx.HTTPError, ValueError) as exc:
             raise LiaraError(f'اختلال ارتباط یا پاسخ نامعتبر ({type(exc).__name__})') from exc
 
