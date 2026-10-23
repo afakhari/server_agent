@@ -17,6 +17,11 @@ import sys
 from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
+# Running "python scripts\\run_local.py" on Windows sets sys.path[0] to
+# the scripts directory. Make the repository packages importable in both
+# direct-file and "-m scripts.run_local" invocations.
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 PROJECT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,62}$")
 
 
