@@ -30,6 +30,23 @@ class DeployError(ValueError):
     pass
 
 
+def verify_existing_platform(client, project: str, expected: str) -> dict:
+    """Check exact target and known platform; allow case-only variations."""
+    current = client.get_project(project)
+    if current.get('project_id') != project:
+        raise DeployError('شناسه پروژه موجود با نام هدف مطابقت ندارد؛ هیچ انتشار انجام نشد')
+    actual = current.get('type')
+    if not isinstance(actual, str) or not re.fullmatch(r'[A-Za-z0-9_.+-]{1,40}', actual.strip()):
+        raise DeployError('نوع پلتفرم برنامه در API نامشخص یا نامعتبر است؛ انتشار متوقف شد')
+    if actual.strip().casefold() != expected.casefold():
+        raise DeployError(
+            f'پلتفرم برنامه موجود در API: {actual.strip()}؛ '
+            f'پلتفرم سورس انتخاب‌شده: {expected}. '
+            'یکی از برنامه‌های مناسب را انتخاب کنید؛ تغییر پلتفرم خودکار انجام نمی‌شود'
+        )
+    return current
+
+
 def safe_tree(folder: Path) -> tuple[bytes, str, list[str]]:
     folder = Path(folder).resolve()
     if not folder.is_dir():
@@ -93,11 +110,7 @@ def make_plan(actor: str, project: str, relative_path: str, plan_id: str, platfo
     # A separate explicit mode is required for an already-created application.
     if plan_id == 'existing':
         with LiaraClient() as client:
-            current = client.get_project(project)
-        if current.get('type') != platform:
-            raise DeployError('پلتفرم پروژه موجود با سورس مطابقت ندارد')
-        if not current.get('project_id'):
-            raise DeployError('شناسه پروژه موجود از API تأیید نشده است')
+            verify_existing_platform(client, project, platform)
     identifier = secrets.token_urlsafe(32)
     with session() as conn:
         proposal_conn(conn)
@@ -147,9 +160,7 @@ def perform_deploy(project: str, plan_id: str, platform: str, port: int, content
     with LiaraClient() as client:
         try:
             if plan_id == 'existing':
-                current = client.get_project(project)
-                if not current.get('project_id') or current.get('type') != platform:
-                    raise DeployError('پلتفرم یا شناسه پروژه موجود معتبر نیست')
+                verify_existing_platform(client, project, platform)
             else:
                 # Creating a new app requires an independently approved plan ID.
                 stage = 'create-project'
@@ -171,6 +182,8 @@ def perform_deploy(project: str, plan_id: str, platform: str, port: int, content
                     'message': ('درخواست انتشار روی پروژه موجود ارسال شد؛ آماده‌بودن نسخه و پاسخ HTTP باید جدا بررسی شوند.'
                                 if plan_id == 'existing' else
                                 'درخواست ایجاد پروژه و انتشار ارسال شد؛ سلامت وب‌سایت هنوز تأیید نشده است.')}
+        except DeployError:
+            raise
         except (LiaraError, httpx.HTTPError, ValueError, KeyError) as exc:
             # Unknown partial writes are expected after transport failure. Never auto-delete.
             raise DeployError(f'مرحله {stage} ناموفق یا نامعلوم است ({type(exc).__name__})؛ وضعیت پروژه را پیش از هر تکرار بررسی کنید') from exc

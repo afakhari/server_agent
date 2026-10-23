@@ -40,7 +40,8 @@ el('listProjects').onclick=async()=>{
   box.textContent='در حال دریافت فهرست برنامه‌های قابل دسترسی…';
   try{
     const data=await api('/api/projects');
-    const names=(data.projects||[]).map(p=>p.project_id||p.name).filter(Boolean);
+    const projects=(data.projects||[]).filter(p=>p.project_id||p.name);
+    const names=projects.map(p=>p.project_id||p.name);
     if(!names.length){
       box.textContent='توکن پذیرفته شد اما برنامه‌ای در فهرست این حساب دیده نشد. حساب/تیم یا ایجاد برنامه را بررسی کنید.';
       return;
@@ -49,15 +50,20 @@ el('listProjects').onclick=async()=>{
     label.className='field';
     label.textContent='برنامه واقعی را از فهرست انتخاب کنید:';
     const select=document.createElement('select');
-    for(const name of names){
+    for(const item of projects){
       const option=document.createElement('option');
-      option.value=name; option.textContent=name;
+      option.value=item.project_id||item.name;
+      option.textContent=option.value+(item.type?' · پلتفرم: '+item.type:' · پلتفرم: نامشخص');
       select.appendChild(option);
     }
     if(names.includes(el('project').value))select.value=el('project').value;
     else el('project').value=names[0];
     select.value=el('project').value;
-    select.onchange=()=>{el('project').value=select.value;};
+    el('deployProject').value=select.value;
+    select.onchange=()=>{
+      el('project').value=select.value;
+      el('deployProject').value=select.value;
+    };
     label.appendChild(select);
     box.replaceChildren(label);
   }catch(e){

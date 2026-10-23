@@ -100,3 +100,59 @@ def test_existing_app_wrong_platform_blocks_upload(monkeypatch):
     with pytest.raises(DeployError):
         deployer.perform_deploy('sandbox','existing','python',8000,b'test')
     assert calls==[('GET','/v1/projects/sandbox')]
+
+def test_case_only_platform_difference_accepted(monkeypatch):
+    from sentinel import deployer
+    import httpx
+    calls=[]
+    def handler(request):
+        calls.append((request.method,request.url.path))
+        if request.method=='GET':
+            return httpx.Response(200,json={'project':{
+                'project_id':'sandbox','type':'Python','isDeployed':False}})
+        if request.url.path.endswith('/sources'):
+            return httpx.Response(200,json={'sourceID':'source'})
+        if request.url.path.endswith('/releases'):
+            return httpx.Response(200,json={'releaseID':'release'})
+        return httpx.Response(409)
+    transport=httpx.MockTransport(handler)
+    class Fake:
+        def __enter__(self):
+            from sentinel.liara import LiaraClient
+            self.client=LiaraClient(token='fake',transport=transport)
+            return self.client
+        def __exit__(self,*args): self.client.close()
+    monkeypatch.setattr(deployer,'LiaraClient',Fake)
+    result=deployer.perform_deploy('sandbox','existing','python',8000,b'archive')
+    assert result['execution']=='SUBMITTED'
+    assert not any(m=='POST' and p=='/v1/projects' for m,p in calls)
+
+
+def test_actual_platform_mismatch_explained_and_blocks_write(monkeypatch):
+    from sentinel import deployer
+    import httpx
+    calls=[]
+    def handler(request):
+        calls.append((request.method,request.url.path))
+        return httpx.Response(200,json={'project':{
+            'project_id':'sandbox','type':'node','isDeployed':False}})
+    transport=httpx.MockTransport(handler)
+    class Fake:
+        def __enter__(self):
+            from sentinel.liara import LiaraClient
+            self.client=LiaraClient(token='fake',transport=transport)
+            return self.client
+        def __exit__(self,*args): self.client.close()
+    monkeypatch.setattr(deployer,'LiaraClient',Fake)
+    with pytest.raises(DeployError,match='node') as exc:
+        deployer.perform_deploy('sandbox','existing','python',8000,b'archive')
+    assert 'python' in str(exc.value)
+    assert calls==[('GET','/v1/projects/sandbox')]
+
+
+def test_missing_platform_metadata_blocks_write():
+    from sentinel.deployer import verify_existing_platform
+    class Fake:
+        def get_project(self,name): return {'project_id':name}
+    with pytest.raises(DeployError,match='نامشخص'):
+        verify_existing_platform(Fake(),'sandbox','python')

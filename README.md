@@ -92,3 +92,6 @@ The bundled disposable FastAPI example now supports an **opt-in missing-env fail
 
 ### Windows users: deploy to an existing Liara test app
 The guided deployment wizard now defaults to **API: publish to existing application**, so no extra app creation or CLI/WSL is required. Launch locally with `python scripts/run_local.py --mode test-api --project YOUR_DISPOSABLE_APP` only after understanding billable effects. Pick path `fastapi-shop`, platform Python, port 8000, and the exact allowlisted project ID. A preview and an exact one-use approval are mandatory. The request result is SUBMITTED, not independently VERIFIED.
+
+### Existing application platform check
+The wizard validates the API project's `type` against the selected source platform. Platform spelling differs only by letter case? Both `Python` and `python` are accepted. An actual mismatch (for instance `node` vs `python`), missing metadata, or a different project ID **blocks all writes**, showing a safe non-secret diagnostic. The account's read-only project dropdown now labels actual platform types. Do not bypass a mismatch by editing request parameters blindly.
