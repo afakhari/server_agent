@@ -15,5 +15,14 @@ def test_anonymous_demo_with_server_key(monkeypatch, tmp_path):
         proposal = response.json()['proposals'][0]['proposal_id']
         assert guest.post('/api/approve', json={'proposal_id': proposal, 'confirm_project': 'demo-shop'}).status_code == 200
         assert guest.post('/api/inspect', json={'mode': 'live', 'project': 'example'}).status_code == 403
+        chat = guest.post('/api/chat/messages', json={'mode': 'demo', 'message': 'سایتم خطای ۵۰۰ دارد'})
+        assert chat.status_code == 200, chat.text
+        thread_id = chat.json()['thread_id']
+        assert guest.get('/api/chat/threads/' + thread_id).status_code == 200
+        assert guest.get('/api/audit').json()['events'] == []
         with TestClient(app.app) as other:
             assert other.post('/api/approve', json={'proposal_id': proposal, 'confirm_project': 'demo-shop'}).status_code != 200
+            assert other.get('/api/chat/threads/' + thread_id).status_code == 403
+            assert other.post('/api/chat/messages', json={
+                'mode': 'demo', 'thread_id': thread_id, 'message': 'سلام'
+            }).status_code == 403
