@@ -33,6 +33,18 @@ def evidence(snapshot):
     for metric in ['cpu_pct','memory_pct']:
         v=(snapshot.get('derived_metrics') or {}).get(metric)
         if v is not None: add('metric', f'{metric}: {v} (با منشأ {snapshot.get("metric_origin","نامشخص")})', 'GET /v1/projects/{name}/metrics/summary')
+    # Real Liara raw metrics may not have documented denominators or units.
+    # Preserve only bounded scalar observations; NEVER call raw values %.
+    raw = snapshot.get('raw_metrics') or {}
+    if isinstance(raw, dict):
+        for name in ('cpuUsage', 'memoryUsage', 'disksUsage'):
+            value = raw.get(name)
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                add('metric_raw', f'{name}: {value} (مقدار خام؛ واحد و نسبت به سقف پلن تأیید نشده)',
+                    'GET /v1/projects/{name}/metrics/summary')
+            elif isinstance(value, str) and 0 < len(value) <= 32 and re.fullmatch(r'[0-9.+ -]{1,32}', value):
+                add('metric_raw', f'{name}: {value} (مقدار خام؛ واحد و درصد تأیید نشده)',
+                    'GET /v1/projects/{name}/metrics/summary')
     return out
 
 
