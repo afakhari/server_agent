@@ -43,3 +43,11 @@
 
 ### وضعیت آزمون خودکار شاخه Conversational
 GitHub Actions workflow در PR #26 ایجاد شد. اجرای اولیه در تاریخ 2026-10-23 با نتیجه failure و **بدون هیچ step گزارش‌شده** پایان یافت؛ متن log از رابط GitHub در این نشست در دسترس نبود. بنابراین هیچ نتیجه‌ای درباره موفقیت یا شکست واقعی unit tests / frontend build نمی‌توان گرفت؛ QA همچنان BLOCKED / UNVERIFIED است و باید با دسترسی به runner یا اجرای محلی تکمیل شود.
+
+
+### پیش‌پرواز VPS خصوصی · 2026-10-23
+- Docker multi-stage با non-root runner و حجم داده دائمی افزوده شد.
+- `compose.server.yaml` و Caddy با HTTPS + Basic Auth و عدم publish پورت برنامه افزوده شد.
+- `private-server` profile، startup fail-closed برای secret، DB، LangGraph و frontend build، و deny نوشتن Liara افزوده شد.
+- تست‌های جدید `tests/test_server_deployment.py` نوشته شده‌اند ولی در این نشست اجرای واقعی گزارش نشده است.
+- وضعیت عملیاتی سرور **NOT DEPLOYED** و وضعیت انتشار **NO-GO** تا اثبات build، QA، و آزمون HTTPS واقعی باقی می‌ماند.
