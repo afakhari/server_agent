@@ -1,4 +1,5 @@
 import os
+import hashlib
 from concurrent.futures import ThreadPoolExecutor
 from fastapi.testclient import TestClient
 from app import app
@@ -45,8 +46,11 @@ def test_live_write_is_default_disabled():
 
 def test_approval_state_drift_rejected():
     identifier = proposal()
+    cookie = client.cookies.get('sentinel_demo_session')
+    assert cookie
+    guest_actor = 'anonymous-demo:' + hashlib.sha256(cookie.encode()).hexdigest()
     with __import__('pytest').raises(ValueError):
-        consume_approval(identifier, actor_digest(None, 'demo'), 'demo-shop', 'different-state')
+        consume_approval(identifier, guest_actor, 'demo-shop', 'different-state')
 
 
 def test_concurrent_approval_single_use():
@@ -54,6 +58,7 @@ def test_concurrent_approval_single_use():
     action = {'proposal_id': identifier, 'confirm_project': 'demo-shop'}
     def work(_):
         with TestClient(app) as c:
+            c.cookies.set('sentinel_demo_session', client.cookies['sentinel_demo_session'])
             return c.post('/api/approve', json=action).status_code
     with ThreadPoolExecutor(max_workers=4) as pool:
         statuses = list(pool.map(work, range(4)))
