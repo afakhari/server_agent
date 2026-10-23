@@ -13,6 +13,25 @@ Liara Sentinel is a proposed **evidence-driven deployment and site-reliability a
 - **[docs/25-end-to-end-scenario-audit.md](docs/25-end-to-end-scenario-audit.md)**: 35 user-to-outcome scenarios, identified systemic failure modes, corrections, tests and outstanding release gates.
 - The new guided first-deploy readiness assessment and Coding Agent handoff are **implemented but not live-verified**. Real Liara actions and the mandatory video remain outstanding.
 
+## Competition website: visitor access without credentials
+
+The hosted competition showcase starts in **Demo** mode: any visitor can open the
+site and try incident diagnosis, project discovery, source readiness assessment
+and simulated approval without a login, access key, or Liara token. Sample data
+and sample actions are explicitly labeled; no real Liara deployment or restart
+is performed by visitors.
+
+The backend assigns each browser an opaque HttpOnly guest cookie, isolating its
+chat history and demo approvals from other visitors. The operator's
+`SENTINEL_ACCESS_KEY` remains a server-side configuration requirement for the
+hardened deployment profile; it is **never** requested from visitors. Live
+operations and private account information are **not** opened anonymously.
+
+`compose.server.yaml` uses `deploy/server/Caddyfile.competition` for an HTTPS
+site without HTTP Basic Auth. The original `deploy/server/Caddyfile` remains
+available for separate private operator deployments. See
+[competition deployment notes](docs/22-competition-demo.md).
+
 ## Run the functional prototype
 
 See [RUNNING.md](RUNNING.md) for environment setup, how to run, live-read access, deliberately gated test-only writes and limitations.
