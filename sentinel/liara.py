@@ -86,6 +86,29 @@ class LiaraClient:
             raise LiaraError('ساختار متریک‌ها نامعتبر است')
         return data
 
+    def domains(self, name):
+        """Read domains for one project; expose a strictly nonsecret shape."""
+        data = self.request('GET', '/v1/domains', params={'project': validate_name(name)})
+        if not isinstance(data, dict) or not isinstance(data.get('domains'), list):
+            raise LiaraError('ساختار دامنه‌ها نامعتبر است')
+        return {'domains': [self._safe_domain(row) for row in data['domains'][:50]]}
+
+    @staticmethod
+    def _safe_domain(row):
+        if not isinstance(row, dict):
+            raise LiaraError('ساختار دامنه نامعتبر است')
+        allowed = ('_id', 'name', 'type', 'status', 'certificatesStatus',
+                   'CNameRecord', 'redirectTo', 'redirectStatus')
+        return {key: row[key] for key in allowed if key in row}
+
+    def check_domain(self, domain_id):
+        if not re.fullmatch(r'[A-Za-z0-9_-]{8,80}', str(domain_id)):
+            raise LiaraError('شناسه دامنه معتبر نیست')
+        data = self.request('GET', '/v1/domains/' + domain_id + '/check')
+        if not isinstance(data, dict) or not isinstance(data.get('domain'), dict):
+            raise LiaraError('پاسخ بررسی دامنه معتبر نیست')
+        return {'domain': self._safe_domain(data['domain'])}
+
     def restart(self, name):
         return self.request('POST', f'/v1/projects/{validate_name(name)}/actions/restart')
 
