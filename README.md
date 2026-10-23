@@ -86,3 +86,6 @@ Official docs: https://developers.liara.ir/ and https://github.com/liara-cloud/c
     python scripts/run_local.py --mode demo
 
 پس از ساخت پروژه و توکن آزمایشی توسط مالک، حالت‌های `--mode read` و سپس `--mode test-cli` تنها با تأیید محدود فعال می‌شوند. **توکن را در چت یا ریپو قرار ندهید.** آزمون زنده هنوز انجام نشده است؛ CI نیز عمداً فعال نیست.
+
+### Real, controlled test incident
+The bundled disposable FastAPI example now supports an **opt-in missing-env failure**: set `SENTINEL_REQUIRE_DEMO_FLAG=true` and leave `SENTINEL_DEMO_FLAG` unset to produce a real HTTP 500 and explicit stacktrace; setting `SENTINEL_DEMO_FLAG=ready` restores `/health`. This requires changes **only** on the disposable test app in Liara Console and is NOT an autonomous env fix. See [operator walkthrough](docs/18-operator-steps-fa.md).

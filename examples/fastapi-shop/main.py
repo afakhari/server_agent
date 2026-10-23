@@ -1,6 +1,26 @@
+"""Disposable Liara Sentinel demo app; never use on a production service."""
+import os
 from fastapi import FastAPI
-app=FastAPI()
-@app.get('/health')
-def health(): return {'ok':True}
-@app.get('/')
-def root(): return {'message':'Liara Sentinel demo service'}
+
+app = FastAPI(title="Liara Sentinel test application")
+
+
+def _require_demo_configuration() -> None:
+    # Off by default; this branch exists solely for a controlled SRE demo.
+    if os.getenv("SENTINEL_REQUIRE_DEMO_FLAG") == "true" and not os.getenv("SENTINEL_DEMO_FLAG"):
+        raise RuntimeError(
+            "missing environment variable SENTINEL_DEMO_FLAG "
+            "(controlled SRE test, no secrets involved)"
+        )
+
+
+@app.get("/health")
+def health():
+    _require_demo_configuration()
+    return {"ok": True, "service": "sentinel-test"}
+
+
+@app.get("/")
+def root():
+    _require_demo_configuration()
+    return {"message": "Liara Sentinel disposable demo service"}
