@@ -86,7 +86,8 @@ _ACTIONS = {
 # Specific keywords win over generic ones; multi-label classification preserved.
 _PATTERNS: dict[str, tuple[str, ...]] = {
     "incident": (r"خطا", r"خراب", r"کار نمی کن", r"از کار افتاد", r"\b(?:500|502|503|504|404|oom|crash|failed|error|exception|down|bug)\b",
-                 r"باز نمی ش", r"کند شد", r"بالا نمیاد", r"در دسترس نیست", r"مشکل"),
+                 r"باز نمی ش", r"کند شد", r"بالا نمیاد", r"تایم اوت", r"در دسترس نیست", r"مشکل",
+                 r"\b(?:slow|unhealthy|unavailable|timeout|timed out|connection refused)\b"),
     "deploy": (r"دیپلوی", r"دپلوی", r"استقرار", r"منتشر", r"انتشار بده",
                r"دیپلو", r"راه انداز", r"ساخت پروژه", r"ساخت برنامه", r"ایجاد پروژه",
                r"\bdeploy\b", r"\bpublish\b", r"آپلود سورس"),
@@ -142,7 +143,7 @@ def classify(message: str) -> Decision:
         return Decision("greeting", "guide", "clear", ("greeting",),
                         (_ACTIONS["deploy"], _ACTIONS["incident"], _ACTIONS["projects"]),
                         "سلام! می‌توانم در انتشار، بررسی خطا و مشاهده وضعیت برنامه‌ها کمکتان کنم.")
-    if _has(t, r"چیکار می تونی", r"چه کارهایی", r"راهنما", r"\bhelp\b", r"از کجا شروع"):
+    if len(t) < 24 and _has(t, r"چیکار می تونی", r"چه کارهایی", r"راهنما", r"\bhelp\b", r"از کجا شروع"):
         return Decision("help", "guide", "clear", ("help",),
                         (_ACTIONS["deploy"], _ACTIONS["incident"], _ACTIONS["domains"]),
                         "از یکی از مسیرهای زیر شروع کنید. فقط اقدام‌های پشتیبانی‌شده را پیشنهاد می‌دهم.")
@@ -185,6 +186,8 @@ def classify(message: str) -> Decision:
     read_tasks = hits & {"projects", "releases", "domains", "health", "logs",
                          "billing", "security", "env", "database", "backup",
                          "team", "support", "notifications"}
+    if "resources" in hits:
+        read_tasks.add("health")
     if "logs" in read_tasks and "health" in read_tasks:
         read_tasks.remove("logs")
     # These are modifiers of a more specific task, not separate goals.
