@@ -31,10 +31,7 @@ el('listProjects').onclick=async()=>{
     return;
   }
   if(!accessKey){
-    
-  }
-  if(!accessKey){
-    box.textContent='برای خواندن فهرست برنامه‌ها کلید Sentinel لازم است.';
+    box.textContent='دسترسی واقعی در این نشست فعال نیست. پیکربندی احراز هویت در سرور لازم است.';
     return;
   }
   box.textContent='در حال دریافت فهرست برنامه‌های قابل دسترسی…';
@@ -78,7 +75,7 @@ el('listProjects').onclick=async()=>{
     box.textContent='دریافت فهرست ناموفق بود: '+e.message;
   }
 };
-el('inspect').onclick=async()=>{if(el('mode').value==='live'&&!accessKey){}const button=el('inspect');button.disabled=true;button.textContent='در حال بررسی…';try{const x=await api('/api/inspect',{method:'POST',body:JSON.stringify({mode:el('mode').value,project:el('project').value,scenario:el('scenario').value})});render(x)}catch(err){alert(err.message)}finally{button.disabled=false;button.textContent='شروع بررسی شواهد ←'}};
+el('inspect').onclick=async()=>{const button=el('inspect');button.disabled=true;button.textContent='در حال بررسی…';try{const x=await api('/api/inspect',{method:'POST',body:JSON.stringify({mode:el('mode').value,project:el('project').value,scenario:el('scenario').value})});render(x)}catch(err){alert(err.message)}finally{button.disabled=false;button.textContent='شروع بررسی شواهد ←'}};
 el('approve').onclick=async()=>{if(!current?.proposals?.length)return;const a=current.proposals[0];let button=el('approve');button.disabled=true;try{const x=await api('/api/approve',{method:'POST',body:JSON.stringify({proposal_id:a.proposal_id,confirm_project:el('confirmProject').value})});el('result').innerHTML=`<div class="notice"><strong>نتیجه: ${esc(x.execution)}</strong><p>${esc(x.message)}</p><p>اعتبارسنجی: ${esc(x.verification)}</p>${x.before?`<p>قبل: HTTP ${x.before.http_status} | بعد: HTTP ${x.after.http_status} (شبیه‌سازی)</p>`:''}</div>`}catch(err){el('result').innerHTML=`<div class="warning">${esc(err.message)}</div>`}finally{button.disabled=false}};
 let liaraScope='personal';
 el('mode').onchange=()=>{const live=el('mode').value==='live';el('scenario').disabled=live;el('modeLabel').textContent=live?(liaraScope==='team'?'Live TEAM API mode':'Live PERSONAL API mode'):'Demo Sandbox';if(!live)el('project').value='demo-shop';else if(el('project').value==='demo-shop')el('project').value=''};
@@ -91,11 +88,11 @@ el('deployPlatform').addEventListener('change',()=>{
     path.value=el('deployPlatform').value==='node'?'node-sentinel-demo':'fastapi-shop';
   }
 });
-el('planDeploy').onclick=async()=>{if(!accessKey)try{const x=await api('/api/deploy/plan',{method:'POST',body:JSON.stringify({backend:el('deployBackend').value,project:el('deployProject').value,path:el('deployPath').value,plan_id:el('deployBackend').value==='api-existing'?'existing':el('deployPlan').value||'existing',platform:el('deployPlatform').value,port:Number(el('deployPort').value)})});deployProposal=x;el('deployPreview').classList.remove('hidden');el('deployPreview').innerHTML=`<div class="approval"><h3>پیش‌نمایش تغییر حساس</h3><p>پروژه: <b>${esc(x.project)}</b> | پلتفرم: ${esc(x.platform)} | پورت: ${esc(x.port)}</p><p>روش انتشار: ${esc(x.backend||'api')} | شناسه پلن: ${esc(x.plan_id)}؛ قیمت: تأییدنشده</p><p>حساب CLI: ${esc(x.cli_account||'استفاده نمی‌شود')}</p><p>اثر احتمالی: ${x.backend==='api-existing'||x.backend==='cli'?'انتشار نسخه روی پروژه موجود؛ هیچ پروژه جدیدی ساخته نمی‌شود':'ایجاد پروژه جدید و انتشار، با هزینه احتمالی'}</p><p>SHA256 سورس: <span dir="ltr">${esc(x.source_sha256)}</span></p><p>فایل‌های بسته: ${esc(x.included_files.join('، '))}</p><p>${esc(x.warning)}</p><label class="field">برای تأیید، نام پروژه را دوباره وارد کنید<input id="confirmDeploy" autocomplete="off"></label><button class="action primary" id="executeDeploy" style="margin-top:10px">تأیید و ارسال واقعی (فقط آزمایش)</button><div id="deployResult"></div></div>`;el('executeDeploy').onclick=async()=>{if(el('confirmDeploy').value!==deployProposal.project){el('deployResult').textContent='نام پروژه تأیید نشده است';return;}el('executeDeploy').disabled=true;try{const r=await api('/api/deploy/execute',{method:'POST',body:JSON.stringify({proposal_id:deployProposal.proposal_id,confirm_project:deployProposal.project})});el('deployResult').textContent=JSON.stringify(r,null,2);}catch(e){el('deployResult').textContent=e.message;}};}catch(e){alert(e.message)}};
+el('planDeploy').onclick=async()=>{try{const x=await api('/api/deploy/plan',{method:'POST',body:JSON.stringify({backend:el('deployBackend').value,project:el('deployProject').value,path:el('deployPath').value,plan_id:el('deployBackend').value==='api-existing'?'existing':el('deployPlan').value||'existing',platform:el('deployPlatform').value,port:Number(el('deployPort').value)})});deployProposal=x;el('deployPreview').classList.remove('hidden');el('deployPreview').innerHTML=`<div class="approval"><h3>پیش‌نمایش تغییر حساس</h3><p>پروژه: <b>${esc(x.project)}</b> | پلتفرم: ${esc(x.platform)} | پورت: ${esc(x.port)}</p><p>روش انتشار: ${esc(x.backend||'api')} | شناسه پلن: ${esc(x.plan_id)}؛ قیمت: تأییدنشده</p><p>حساب CLI: ${esc(x.cli_account||'استفاده نمی‌شود')}</p><p>اثر احتمالی: ${x.backend==='api-existing'||x.backend==='cli'?'انتشار نسخه روی پروژه موجود؛ هیچ پروژه جدیدی ساخته نمی‌شود':'ایجاد پروژه جدید و انتشار، با هزینه احتمالی'}</p><p>SHA256 سورس: <span dir="ltr">${esc(x.source_sha256)}</span></p><p>فایل‌های بسته: ${esc(x.included_files.join('، '))}</p><p>${esc(x.warning)}</p><label class="field">برای تأیید، نام پروژه را دوباره وارد کنید<input id="confirmDeploy" autocomplete="off"></label><button class="action primary" id="executeDeploy" style="margin-top:10px">تأیید و ارسال واقعی (فقط آزمایش)</button><div id="deployResult"></div></div>`;el('executeDeploy').onclick=async()=>{if(el('confirmDeploy').value!==deployProposal.project){el('deployResult').textContent='نام پروژه تأیید نشده است';return;}el('executeDeploy').disabled=true;try{const r=await api('/api/deploy/execute',{method:'POST',body:JSON.stringify({proposal_id:deployProposal.proposal_id,confirm_project:deployProposal.project})});el('deployResult').textContent=JSON.stringify(r,null,2);}catch(e){el('deployResult').textContent=e.message;}};}catch(e){alert(e.message)}};
 el('audit').onclick=async()=>{try{const r=await api('/api/audit');alert(r.events.slice(-8).map(e=>`${e.at}\n${e.event} | ${e.project||''}`).join('\n\n')||'عملیاتی ثبت نشده')}catch(err){alert(err.message)}};
 
 el('domainStatus').onclick=async()=>{
- if(!accessKey) 
+
  const project=el('project').value.trim();
  try{
   const r=await api('/api/domains/'+encodeURIComponent(project));
@@ -106,7 +103,7 @@ el('domainStatus').onclick=async()=>{
  }catch(e){el('lifecycleResult').textContent=e.message;}
 };
 el('releaseStatus').onclick=async()=>{
- if(!accessKey) 
+
  const project=el('project').value.trim();
  try{
   const r=await api('/api/deploy/status/'+encodeURIComponent(project));
