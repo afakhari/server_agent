@@ -22,3 +22,10 @@ dist/
 coverage/
 # OS
 .DS_Store
+
+# Local persistent prototype state
+*.sqlite3
+*.sqlite3-*
+*.db
+*.db-*
+audit.jsonl

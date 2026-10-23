@@ -6,6 +6,18 @@ Liara Sentinel is a proposed **evidence-driven deployment and site-reliability a
 
 **Product promise:** understand the project or incident → collect real evidence → propose the safest useful action → require exact human approval for impactful changes → execute through a verified adapter → independently verify the outcome.
 
+## Run the functional prototype
+
+See [RUNNING.md](RUNNING.md) for environment setup, how to run, live-read access, deliberately gated test-only writes and limitations.
+
+```bash
+python -m pip install -r requirements.txt
+python -m pytest -q
+uvicorn app:app --host 127.0.0.1 --port 8000
+```
+
+The UI is in Persian and starts in explicitly simulated mode. Actual deployment requires user-controlled test account credentials and validation.
+
 ## Start here / راهنمای مطالعه
 0. [Official challenge traceability](docs/00-competition-traceability.md)
 1. [Product requirements and competition alignment](docs/01-product-prd.md)
@@ -33,7 +45,7 @@ Liara Sentinel is a proposed **evidence-driven deployment and site-reliability a
 - **LIVE-WRITE VERIFIED:** authorized mutation performed on a designated disposable test project, with evidence.
 - **RECOVERY VERIFIED:** independent health and regression checks passed after a change.
 
-The earlier local proof of concept discussed in planning is **not currently installed in this repository**; review and port it only after verifying behavior and dependencies. Development should happen here via small, testable pull requests.
+**Functional prototype now lives in this repository:** `app.py`, `sentinel/`, `static/`, `tests/` and `examples/`. The current implementation has been **locally mock-tested with 33 passing tests**, but **no live Liara operations have been verified**. Start at [RUNNING.md](RUNNING.md). Development continues through small, testable pull requests.
 
 ## Non-negotiable rules
 - Deny-by-default for mutations. No free-form shell commands via LLM.
