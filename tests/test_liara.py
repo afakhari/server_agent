@@ -69,3 +69,25 @@ def test_domain_read_is_redacted_and_scoped():
         result=client.domains('test-shop')
     assert result['domains'][0]['name']=='shop.example.com'
     assert 'PRIVATE' not in repr(result)
+
+def test_missing_project_shows_which_endpoint_failed_without_secrets():
+    def handler(request):
+        return httpx.Response(404, text='private-response-should-not-leak')
+    with LiaraClient(token='TOKEN_SHOULD_NOT_LEAK', transport=httpx.MockTransport(handler)) as client:
+        with pytest.raises(LiaraError) as exc:
+            client.get_project('wrong-project')
+    detail=str(exc.value)
+    assert 'Liara HTTP 404' in detail
+    assert 'GET /v1/projects/wrong-project' in detail
+    assert 'TOKEN_SHOULD_NOT_LEAK' not in detail
+    assert 'private-response-should-not-leak' not in detail
+
+
+def test_list_projects_returns_valid_project_id_names():
+    with LiaraClient(token='fake', transport=httpx.MockTransport(
+        lambda request: httpx.Response(200,json={'projects':[{
+            'project_id':'real-test-app','_id':'internal-id','envs':[{'value':'SECRET'}]
+        }]}))) as client:
+        result=client.list_projects()
+    assert result['projects'][0]['project_id']=='real-test-app'
+    assert 'SECRET' not in repr(result)
