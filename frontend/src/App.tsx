@@ -164,8 +164,10 @@ function DeployCard({data,token,activeProject,mode,onProject,serverReadOnly}:{da
     </div>
     <div className="actions">
       <button className="secondary" disabled={busy||mode!=='live'||!token} onClick={()=>run(()=>api('/api/scout',{path}),x=>setScan(x.analysis))}>تحلیل سورس</button>
-      <button className="primary" disabled={busy||serverReadOnly||mode!=='live'||!token||!project||!path||!assessment||assessment.readiness==='blocked'||(backend==='api'&&!planId)||!Number.isInteger(Number(port))||Number(port)<1||Number(port)>65535} onClick={()=>run(()=>api('/api/deploy/plan',{backend,project,path,platform,port:Number(port),plan_id:backend==='api'?planId:'existing'}),x=>{setPlan(x);setConfirmation('');setExecuteAttempted(false);setResult(null);setVerification(null);onProject(x.project);})}>پیش‌نمایش انتشار</button>
+      <button className="primary" disabled={busy||serverReadOnly||mode!=='live'||!token||!project||!path||!assessment||assessment.readiness==='blocked'||assessment.platform!==platform||(assessment.port!=null&&assessment.port!==Number(port))||(backend==='api'&&!planId)||!Number.isInteger(Number(port))||Number(port)<1||Number(port)>65535} onClick={()=>run(()=>api('/api/deploy/plan',{backend,project,path,platform,port:Number(port),plan_id:backend==='api'?planId:'existing'}),x=>{setPlan(x);setConfirmation('');setExecuteAttempted(false);setResult(null);setVerification(null);onProject(x.project);})}>پیش‌نمایش انتشار</button>
     </div>
+    {assessment && assessment.platform!==platform && <p className="caution" role="alert">پلتفرم انتخاب‌شده با تحلیل سورس همخوانی ندارد. قبل از درخواست انتشار، پلتفرم را اصلاح کنید.</p>}
+    {assessment && assessment.port!=null && assessment.port!==Number(port) && <p className="caution" role="alert">پورت انتشار با نتیجه بررسی سورس متفاوت است. برای پیش‌نمایش باید دوباره تنظیمات را یکسان کنید.</p>}
     {mode==='demo' && <div className="caution">این نمونه شبیه‌سازی است. عملیات انتشار واقعی فقط با اتصال امن و مجوز سمت سرور فعال می‌شود.</div>}
     {plan && <div className="approval"><strong>پیش‌نمایش عملیات واقعی</strong>
       <p>پروژه: <span dir="ltr">{plan.project}</span> · پلتفرم: {plan.platform} · پورت: {plan.port}</p>
