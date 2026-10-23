@@ -101,10 +101,11 @@ def detect_intent(message: str) -> str:
     lowered = message.lower()
     if re.search(r"پروژه.?ها|برنامه.?های حساب|فهرست برنامه|list projects", lowered):
         return "projects"
-    if re.search(r"دیپلوی|استقرار|منتشر|انتشار بده|راه.?انداز|deploy|publish", lowered):
-        return "deploy"
+    # A failure *after* deployment is an incident, not a new deploy request.
     if re.search(r"مشکل|خطا|خراب|کند|هنگ|لاگ|ری.?استارت|500|۵۰۰|503|۵۰۳|oom|error|crash|log|memory|ram|cpu|رم|حافظه|مصرف|سلامت|وضعیت|پایش|health|status", lowered):
         return "inspect"
+    if re.search(r"دیپلوی|استقرار|منتشر|انتشار بده|راه.?انداز|deploy|publish", lowered):
+        return "deploy"
     return "general"
 
 
@@ -281,6 +282,14 @@ def respond(actor: str, mode: str, text: str, thread_id: str | None = None,
     if scenario not in {"transient", "env", "memory", "release", "healthy"}:
         raise ValueError("سناریوی نامعتبر.")
     identifier, chosen = open_thread(actor, mode, thread_id, project)
+    if mode == "demo" and scenario == "transient":
+        lowered = text.lower()
+        if re.search(r"رم|حافظه|memory|\\bram\\b|oom", lowered):
+            scenario = "memory"
+        elif re.search(r"متغیر محیطی|پیکربندی|database_url|env", lowered):
+            scenario = "env"
+        elif re.search(r"بعد از انتشار|نسخه جدید|بعد از دیپلوی|release", lowered):
+            scenario = "release"
     state = {"text": text.strip(), "actor": actor, "mode": mode,
              "project": chosen or "", "scenario": scenario}
     add_message(identifier, "user", text.strip())
