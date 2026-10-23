@@ -259,10 +259,23 @@ def guide_node(state: AgentState) -> dict:
     )
     if topic in answers and not decision.get("message"):
         answer = answers[topic]
+    actions = list(decision.get("suggested_actions", []))
+    if topic == "unknown":
+        # Optional model output is a *suggestion button* only, never an
+        # executable graph edge. No LLM is called for secrets or blocked text.
+        suggestion = classify_with_llm(state["text"], "general")
+        suggested = {
+            "inspect": {"label": "پیشنهاد مدل: بررسی خطا", "prompt": "سایتم خطا دارد؛ شواهد را بررسی کن"},
+            "deploy": {"label": "پیشنهاد مدل: انتشار سایت", "prompt": "می‌خواهم سایتم را منتشر کنم"},
+            "projects": {"label": "پیشنهاد مدل: فهرست پروژه‌ها", "prompt": "فهرست برنامه‌های حساب را نشان بده"},
+        }.get(suggestion)
+        if suggested:
+            actions.insert(0, suggested)
+            answer += " یک مسیر احتمالی هم پیشنهاد شده است؛ فقط با انتخاب صریح شما بررسی آن آغاز می‌شود."
     return {"answer": answer,
             "ui": {"type": "guidance", "topic": topic,
                    "certainty": decision.get("certainty", "unknown"),
-                   "actions": decision.get("suggested_actions", []),
+                   "actions": actions,
                    "limitations": ["هیچ عملیات تغییردهنده‌ای از این پیام اجرا نشده است."]}}
 
 
