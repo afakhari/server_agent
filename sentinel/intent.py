@@ -95,6 +95,16 @@ _PATTERNS: dict[str, tuple[str, ...]] = {
     "security": (r"امنیت", r"مجوز", r"توکن", r"دسترسی", r"کلید", r"\bauth\b", r"\btoken\b", r"\bsecurity\b"),
     "env": (r"متغیر محیطی", r"انوایر", r"تنظیمات محیطی", r"\b(?:env|dotenv|environment)\b", r"کانفیگ"),
     "restart": (r"ری استارت", r"ریستارت", r"راه اندازی مجدد", r"\brestart\b"),
+    "resources": (r"مصرف رم", r"مصرف cpu", r"حافظه", r"سی پی یو",
+                  r"کندی", r"پرفورمنس", r"\b(?:ram|cpu|memory|disk|latency|metrics?)\b"),
+    "database": (r"دیتابیس", r"پایگاه داده", r"پستگرس", r"ردیس",
+                 r"\b(?:postgres|postgresql|mysql|mongodb|redis|database)\b"),
+    "backup": (r"بکاپ", r"پشتیبان گیری", r"بازیابی داده",
+               r"\b(?:backup|restore|snapshot)\b"),
+    "team": (r"حساب تیمی", r"پروژه تیمی", r"اعضای تیم", r"\bworkspace\b",
+             r"\bteam\b"),
+    "support": (r"پشتیبانی", r"اپراتور", r"کارشناس", r"انسان واقعی", r"\bsupport\b"),
+    "notifications": (r"هشدار", r"اعلان", r"خبرم کن", r"وقتی خراب شد", r"\b(?:alert|notify|notification)\b"),
 }
 _DESTRUCTIVE = (r"حذف (?:کن|بکن|پروژه|برنامه|سرویس|اطلاعات)", r"پاک (?:کن|کردن|بکن)",
                 r"\b(?:delete|drop|destroy|terminate|wipe)\b", r"دیتابیس رو پاک", r"همه رو حذف")
@@ -135,7 +145,7 @@ def classify(message: str) -> Decision:
                         (_ACTIONS["deploy"], _ACTIONS["incident"], _ACTIONS["projects"]),
                         "درخواست شما را با اطمینان کافی به یکی از قابلیت‌های موجود مرتبط نکردم. لطفاً یکی از مسیرهای مشخص را انتخاب کنید.")
     # Negative or hypothetical requests must not be interpreted as authorization.
-    if _has(t, r"نمی خوام", r"نمی خواهم", r"اجرا نکن", r"فقط توضیح", r"بدون اجرا", r"don'?t (?:deploy|restart)"):
+    if _has(t, r"نمی خوام", r"نمی خواهم", r"اجرا نکن", r"منتشر نکن", r"دیپلوی نکن", r"فقط توضیح", r"بدون اجرا", r"don'?t (?:deploy|restart)"):
         return Decision("explain", "guide", "clear", tuple(sorted(hits)),
                         tuple(_ACTIONS[k] for k in ("billing", "security") if k in hits),
                         "درخواست شما را توضیحی در نظر گرفتم. هیچ عملیاتی اجرا یا برای تأیید ارسال نمی‌شود.")
@@ -163,11 +173,11 @@ def classify(message: str) -> Decision:
         return Decision("domains", "domains", "clear", tuple(sorted(hits)))
     if "projects" in hits:
         return Decision("projects", "projects", "clear", tuple(sorted(hits)))
-    if "logs" in hits or "health" in hits:
+    if "logs" in hits or "health" in hits or "resources" in hits:
         return Decision("health", "inspect", "clear", tuple(sorted(hits)))
     # Prices, plans, security and env are educational guidance with verified
     # boundaries; they are not fabricated estimates or permission changes.
-    for label in ("billing", "security", "env"):
+    for label in ("billing", "security", "env", "database", "backup", "team", "support", "notifications"):
         if label in hits:
             return Decision(label, "guide", "clear", tuple(sorted(hits)))
     return Decision("unknown", "guide", "unknown", tuple(sorted(hits)),
