@@ -7,6 +7,7 @@ Liara Sentinel is a proposed **evidence-driven deployment and site-reliability a
 **Product promise:** understand the project or incident → collect real evidence → propose the safest useful action → require exact human approval for impactful changes → execute through a verified adapter → independently verify the outcome.
 
 ## Start here / راهنمای مطالعه
+0. [Official challenge traceability](docs/00-competition-traceability.md)
 1. [Product requirements and competition alignment](docs/01-product-prd.md)
 2. [Architecture and boundaries](docs/02-architecture.md)
 3. [Liara API contracts and capability validation](docs/03-liara-api.md)
@@ -19,7 +20,11 @@ Liara Sentinel is a proposed **evidence-driven deployment and site-reliability a
 10. [Five-minute demo and submission](docs/10-demo.md)
 11. [Decisions, assumptions, and unknowns](docs/11-decisions.md)
 12. [Source references](docs/12-references.md)
-13. [Working agreement for coding agents](AGENTS.md)
+13. [Delivery roadmap](docs/13-delivery-roadmap.md)
+14. [Live integration runbook](docs/14-liara-integration-runbook.md)
+15. [Market benchmark](docs/15-market-benchmark.md)
+16. [Working agreement for coding agents](AGENTS.md)
+17. [Security policy](SECURITY.md) and [contribution guide](CONTRIBUTING.md)
 
 ## Truthfulness and maturity
 - **SPECIFIED:** behavior is documented; not proof of implementation.
