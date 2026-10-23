@@ -79,6 +79,9 @@ app = FastAPI(
     title='Liara Sentinel', version='0.3.0',
     description='Evidence-first, human-approved operations',
     lifespan=lifespan,
+    docs_url=None if os.getenv('SENTINEL_EXPOSURE_MODE') == 'private-server' else '/docs',
+    redoc_url=None if os.getenv('SENTINEL_EXPOSURE_MODE') == 'private-server' else '/redoc',
+    openapi_url=None if os.getenv('SENTINEL_EXPOSURE_MODE') == 'private-server' else '/openapi.json',
 )
 
 @app.middleware('http')
