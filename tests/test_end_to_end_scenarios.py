@@ -287,3 +287,42 @@ def test_failed_in_flight_request_is_never_blindly_executed_again():
     with pytest.raises(RuntimeError, match="قبلاً"):
         conversation.begin_request(actor, REQ, payload_data)
     assert conversation.list_threads(actor) == []
+
+
+
+def test_new_turn_really_consumes_old_proposal_even_on_legacy_endpoint():
+    with TestClient(app.app) as client:
+        first = client.post("/api/chat/messages",
+                            json=payload("سرویس crash کرده")).json()
+        proposed = first["ui"]["report"]["proposals"][0]["proposal_id"]
+        followup = client.post("/api/chat/messages", json=payload(
+            "میشه هزینه سرویس رو توضیح بدی؟", thread_id=first["thread_id"]))
+        assert followup.status_code == 200
+        # A UI-only disabled card is insufficient: the legacy route must
+        # also reject a formerly valid actor/project-bound approval.
+        legacy = client.post("/api/approve", json={
+            "proposal_id": proposed, "confirm_project": "demo-shop"})
+        assert legacy.status_code != 200
+        assert client.post("/api/chat/approval", json={
+            "thread_id": first["thread_id"],
+            "proposal_id": proposed, "confirm_project": "demo-shop",
+            "approved": True}).status_code != 200
+
+
+def test_second_turn_after_completed_request_can_create_new_approval():
+    with TestClient(app.app) as client:
+        first = client.post("/api/chat/messages",
+                            json=payload("worker crash", request_id=REQ)).json()
+        proposal_1 = first["ui"]["report"]["proposals"][0]["proposal_id"]
+        second = client.post("/api/chat/messages", json=payload(
+            "worker crash", thread_id=first["thread_id"],
+            request_id="other-valid-client-turn-id-123456789"))
+        assert second.status_code == 200
+        proposal_2 = second.json()["ui"]["report"]["proposals"][0]["proposal_id"]
+        assert proposal_1 != proposal_2
+        assert client.post("/api/approve", json={
+            "proposal_id": proposal_1, "confirm_project": "demo-shop"}).status_code != 200
+        assert client.post("/api/chat/approval", json={
+            "thread_id": first["thread_id"],
+            "proposal_id": proposal_2, "confirm_project": "demo-shop",
+            "approved": True}).status_code == 200
