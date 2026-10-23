@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AppendMessage, ThreadMessageLike } from '@assistant-ui/react';
 import { AssistantRuntimeProvider, useExternalStoreRuntime, ThreadPrimitive, MessagePrimitive, ComposerPrimitive, AuiIf } from '@assistant-ui/react';
 import { Activity, ArrowUp, BookOpen, CheckCircle2, ChevronDown, CircleAlert, ClipboardCheck, CloudUpload, FileSearch, History, KeyRound, List, LoaderCircle, Menu, PanelLeftClose, Plus, RefreshCcw, Server, ShieldCheck, Sparkles, X } from 'lucide-react';
@@ -19,6 +19,11 @@ const intentNames:Record<string,string> = {
   unsupported:'خارج از قابلیت موجود',
 };
 const uid = () => crypto.randomUUID();
+// The browser must not echo accidentally pasted credentials in the message list.
+function safeDisplayText(value:string):string {
+  const sensitive = /(?:\b(?:liara_api_token|sentinel_access_key|openai_api_key|api[_-]?key|secret[_-]?key|password|authorization)\s*[:=]\s*[^\s,;]{8,}|\bBearer\s+[A-Za-z0-9._\/+\-=]{12,}|\bsk-[A-Za-z0-9_-]{16,}|\bgh[pousr]_[A-Za-z0-9_]{16,})/i;
+  return sensitive.test(value) ? 'متن شامل اطلاعات محرمانه بود و برای حفاظت نمایش داده نمی‌شود.' : value;
+}
 function parseError(response: Response, data: any) {
   return new Error(typeof data?.detail === 'string' ? data.detail : 'خطای ارتباط با سرویس (' + response.status + ')');
 }
@@ -260,6 +265,7 @@ export default function App() {
   const [project,setProject] = useState('');
   const [token,setToken] = useState('');
   const [running,setRunning] = useState(false);
+  const sendingRef = useRef(false);
   const [status,setStatus] = useState('');
   const [sideOpen,setSideOpen] = useState(()=>window.innerWidth>850);
   const [error,setError] = useState('');
@@ -268,7 +274,7 @@ export default function App() {
   const [authRequired,setAuthRequired] = useState(false);
   useEffect(()=>{
     fetch('/api/config').then(r=>r.ok?r.json():Promise.reject(new Error('config unavailable')))
-      .then(data=>{setServerReadOnly(data.server_profile!=='local');setAuthRequired(Boolean(data.auth_required));})
+      .then(data=>{setServerReadOnly(!Boolean(data.deployment_planning_available));setAuthRequired(Boolean(data.auth_required));})
       .catch(()=>setServerReadOnly(true));
   },[]);
   const headers = useMemo(()=>({'Content-Type':'application/json','X-Sentinel-Access-Key':token}),[token]);
@@ -281,11 +287,13 @@ export default function App() {
     setThreadId(id);setMode(data.mode);setProject(data.project||'');setError('');
   },[headers]);
   const send = useCallback(async(input:string)=>{
-    if(running||!input.trim())return;
-    const item:ChatItem={id:uid(),role:'user',content:input.trim(),at:Date.now()/1000};
+    if(sendingRef.current||running||!input.trim())return;
+    sendingRef.current=true;
+    const requestId=uid();
+    const item:ChatItem={id:uid(),role:'user',content:safeDisplayText(input.trim()),at:Date.now()/1000};
     setMessages(old=>[...old,item]);setRunning(true);setError('');setStatus('در حال شروع بررسی...');
     try {
-      const response=await fetch('/api/chat/stream',{method:'POST',headers,body:JSON.stringify({message:input,thread_id:threadId,mode,project:project||null,scenario})});
+      const response=await fetch('/api/chat/stream',{method:'POST',headers,body:JSON.stringify({message:input,thread_id:threadId,mode,project:project||null,scenario,request_id:requestId})});
       await parseStream(response,(event,data)=>{
         if(event==='status')setStatus(data.label||'در حال بررسی...');
         if(event==='error')throw new Error(data.detail||'خطا در پردازش');
@@ -297,7 +305,7 @@ export default function App() {
         }
       });
     }catch(e:any){setError(e.message || 'پاسخ کامل دریافت نشد؛ ممکن است نتیجه در تاریخچه ثبت شده باشد.');void refreshThreads();}
-    finally{setRunning(false);setStatus('');}
+    finally{sendingRef.current=false;setRunning(false);setStatus('');}
   },[running,headers,threadId,mode,project,scenario,refreshThreads]);
   const onNew = useCallback(async(message:AppendMessage)=>{
     const input=message.content.filter((p:any)=>p.type==='text').map((p:any)=>p.text).join('\n');
