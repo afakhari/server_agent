@@ -70,6 +70,11 @@ def assess(inspection: dict, req: AssessmentInput) -> dict:
          "responsible": "assistant", "status": "reviewed" if not blockers else "needs_attention"},
         {"id": "account", "title": "ورود و بررسی دسترسی حساب یا تیم لیارا",
          "responsible": "operator", "status": "required"},
+        {"id": "target", "title": (
+            "بررسی وجود برنامه فعلی و تطبیق دقیق پلتفرم در حساب لیارا"
+            if req.existing_app else
+            "تأیید نام برنامه جدید و امکان ایجاد آن در حساب لیارا"
+         ), "responsible": "operator", "status": "required"},
         {"id": "billing", "title": "کنترل موجودی، قیمت و شناسه پلن در پنل واقعی",
          "responsible": "operator", "status": "required"},
         {"id": "secrets", "title": "تنظیم متغیرهای محرمانه در محیط امن لیارا",
