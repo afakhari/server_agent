@@ -10,9 +10,9 @@
 ## ADR-005: No automatic rollback promise yet
 **تصمیم:** مشاهده history انتشار مجاز؛ rollback اجرایی در MVP تا تایید API/CLI disabled. **دلیل:** spec بررسی‌شده endpoint واضح activation release قبلی ندارد. **هزینه:** برای recovery ممکن است redeploy از artifact verified لازم شود؛ آن هم فقط بعد از تحقیق.
 ## ADR-006: CLI-first guided deployment
-**تصمیم:** برای P1 از CLI رسمی version-pinned، bounded argv استفاده شود؛ direct upload API در صورت قرارداد تاییدشده. **دلیل:** بسته‌بندی سورس/compatibility. **هزینه:** dependency Node CLI و sandbox.
+**تصمیم هدف اولیه:** API آپلود و انتشار سورس با آرشیو محدود و تأیید کاربر پیاده شده است؛ در صورت ناسازگاری در آزمون زنده، CLI رسمی version-pinned و bounded argv گزینه جایگزین است. **دلیل:** بسته‌بندی سورس/compatibility. **هزینه:** dependency Node CLI و sandbox.
 ## ADR-007: Modular monolith
-**تصمیم:** یک backend با interfaceهای مستقل؛ Postgres durable store. **دلیل:** سرعت ساخت MVP و tracing خطا. **هزینه:** تفکیک serviceهای مستقل در مقیاس آینده.
+**تصمیم:** یک backend با interfaceهای مستقل؛ SQLite برای نمونه اولیه و PostgreSQL برای مرحله تولید پس از نیازسنجی. **دلیل:** سرعت ساخت MVP و tracing خطا. **هزینه:** تفکیک serviceهای مستقل در مقیاس آینده.
 ## ADR-008: Rules baseline + optional LLM
 **تصمیم:** قواعد قابل آزمون اول؛ LLM برای فرضیه/توضیح افزوده شود، نه authority یا اجرای مستقیم. **دلیل:** قابلیت دمو حتی در نبود API مدل؛ جلوگیری از پاسخ بی‌شاهد.
 ## سؤالات باز (بلوک اجرایی)

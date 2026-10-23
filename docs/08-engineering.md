@@ -1,6 +1,6 @@
 # 08 · Engineering Blueprint و قرارداد توسعه
 ## ۱. انتخاب پیشنهادی فنی
-**Backend:** Python 3.12، FastAPI، Pydantic v2، httpx، SQLAlchemy 2، Alembic؛ **Storage:** PostgreSQL؛ **Frontend:** React/Next.js یا frontend سبک با RTL؛ **Test:** pytest، pytest-asyncio، respx/httpx mocks؛ **Tooling:** Ruff، mypy/pyright، pre-commit و CI. این‌ها انتخاب طراحی‌اند، هنوز در ریپو نصب/قفل نشده‌اند. پیچیدگی Redis/Celery را تا نیاز عملی عقب بیندازیم.
+**Backend:** Python 3.12، FastAPI، Pydantic v2، httpx، SQLAlchemy 2، Alembic؛ **Storage:** PostgreSQL؛ **Frontend:** React/Next.js یا frontend سبک با RTL؛ **Test:** pytest، pytest-asyncio، respx/httpx mocks؛ **Tooling:** Ruff، mypy/pyright، pre-commit و آزمون دستی سبک؛ CI در این فاز حذف شده است. این‌ها انتخاب طراحی‌اند، هنوز در ریپو نصب/قفل نشده‌اند. پیچیدگی Redis/Celery را تا نیاز عملی عقب بیندازیم.
 ## ۲. ساختار هدف
 ```text
 server_agent/
@@ -42,7 +42,7 @@ DEFAULT_INCIDENT_LOOKBACK_MINUTES=30
 ```
 این مقادیر فقط مثال‌اند؛ `.env` را commit نکنید. در محیط CI credential واقعی نباشد. tenant secret storage در production باید طراحی جداگانه داشته باشد.
 ## ۵. مراحل پیاده‌سازی کوچک و تحویل‌پذیر
-**M0:** skeleton، typed config، migrations، CI lint/unit، synthetic fixtures و threat tests پایه.
+**M0:** skeleton، typed config، ذخیره SQLite و آزمون‌های دود محلی؛ CI برای سرعت توسعه فعلاً حذف شده است.
 **M1:** read-only adapter با پروژه/لاگ/event/release/metrics، contract snapshots، خطای 401/404/429.
 **M2:** evidence ledger + timeline + rules و hypothesis citations؛ UX گزارش diagnosis.
 **M3:** durable workflow + risk classification + parameter-bound approval + audit.
@@ -51,7 +51,7 @@ DEFAULT_INCIDENT_LOOKBACK_MINUTES=30
 **M6:** اختیاری LLM محدود + coding patch/PR + regression eval؛ presentation-ready.
 هر milestone باید خودش تست، نمایش و معیار DoD داشته باشد؛ کدهای mock نباید به‌عنوان live نمایش داده شوند.
 ## ۶. برنامه PRها
-- PR-001 scaffold and validation CI
+- PR-001 scaffold and manual validation
 - PR-002 Liara read-only adapter + fixture contract tests
 - PR-003 Evidence model + diagnostics
 - PR-004 RTL incident UI
@@ -61,7 +61,7 @@ DEFAULT_INCIDENT_LOOKBACK_MINUTES=30
 - PR-008 Hardening, injection/SSRF tests and demo
 هیچ PR قابلیت بزرگ چندگانه را بدون تست جمع نکند.
 ## ۷. قواعد Git
-شاخه کوتاه‌عمر، PR کوچک، عنوان conventional commit، ≥۱ review برای live mutation path، protected main پس از امکان تنظیم GitHub. موفقیت lint/tests در CI و code review پیش‌شرط merge. PR template شامل «هدف/تغییر API/ریسک امنیتی/معیار پذیرش/مدرک دمو».
+شاخه کوتاه‌عمر، PR کوچک، عنوان conventional commit، ≥۱ review برای live mutation path، protected main پس از امکان تنظیم GitHub. مرور کد و تست‌های دود متناسب با ریسک در طول توسعه کافی‌اند؛ پوشش کامل آزمون‌ها پیش از تحویل نهایی ضروری است. PR template شامل «هدف/تغییر API/ریسک امنیتی/معیار پذیرش/مدرک دمو».
 ## ۸. Acceptance technical
 - typed response decode با malformed sample.
 - همه toolها timeout و bytes cap.

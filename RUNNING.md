@@ -1,6 +1,6 @@
 # Running the functional Liara Sentinel prototype
 
-**Maturity:** local mock-tested (31 automated tests); live read/write and real deployment remain **unverified**. Designed for **localhost and disposable test accounts**. Do not place on a public network or connect production projects.
+**Maturity:** prior development reported local mock-tests (33 tests); newly added tests require a fresh local run before final submission; live read/write and real deployment remain **unverified**. Designed for **localhost and disposable test accounts**. Do not place on a public network or connect production projects.
 
 ## Install and run
 
@@ -61,7 +61,7 @@ After exact human approval, submit `POST /api/deploy/execute` with `{ "proposal_
 python -m pytest -q
 ```
 
-Tests use fixtures and local SQLite with no external API calls. CI runs the same tests without a Liara token. See `docs/09-testing.md` for broader required acceptance tests that are not fully automated yet.
+Tests use fixtures and local SQLite with no external API calls. Automated GitHub CI has been removed to focus on fast development; run this command manually before submission. See `docs/09-testing.md` for broader required acceptance tests that are not fully automated yet.
 
 ## Important limitations
 
