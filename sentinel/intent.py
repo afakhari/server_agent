@@ -147,11 +147,11 @@ def classify(message: str) -> Decision:
         return Decision("greeting", "guide", "clear", ("greeting",),
                         (_ACTIONS["deploy"], _ACTIONS["incident"], _ACTIONS["projects"]),
                         "سلام! می‌توانم در انتشار، بررسی خطا و مشاهده وضعیت برنامه‌ها کمکتان کنم.")
-    if len(t) < 24 and _has(t, r"چیکار می تونی", r"چه کارهایی", r"راهنما", r"\bhelp\b", r"از کجا شروع"):
+    hits = {key for key, patterns in _PATTERNS.items() if _has(t, *patterns)}
+    if not hits and _has(t, r"چیکار می تونی", r"چه کارهایی", r"راهنما", r"\bhelp\b", r"از کجا شروع"):
         return Decision("help", "guide", "clear", ("help",),
                         (_ACTIONS["deploy"], _ACTIONS["incident"], _ACTIONS["domains"]),
                         "از یکی از مسیرهای زیر شروع کنید. فقط اقدام‌های پشتیبانی‌شده را پیشنهاد می‌دهم.")
-    hits = {key for key, patterns in _PATTERNS.items() if _has(t, *patterns)}
     if not hits:
         return Decision("unknown", "guide", "unknown", (),
                         (_ACTIONS["deploy"], _ACTIONS["incident"], _ACTIONS["projects"]),
