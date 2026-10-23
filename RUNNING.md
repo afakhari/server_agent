@@ -80,3 +80,16 @@ For step-by-step owner actions, see [docs/18-operator-steps-fa.md](docs/18-opera
     python scripts/run_local.py --mode read --project YOUR_EXISTING_TEST_PROJECT
 
 The launcher prompts for the API token invisibly and prints a distinct local Sentinel access key. Only `--mode test-cli` or `--mode test-api`, after exact terminal confirmation, enables test writes. No production use. Optional `--health-url https://your-owned-domain/health` binds an owned HTTPS probe to `--project`.
+
+
+## New React chat workspace
+
+The previous `static/index.html` remains as a no-build fallback. To start the **new** adaptive chat UI, open a second terminal and run:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open `http://127.0.0.1:5173`. For a bundled single-port version, run `npm run build` inside frontend and restart the Python server; then open `http://127.0.0.1:8000`. New chat session persistence uses the DB path configured by `SENTINEL_DB_PATH`; graph checkpoints use an adjacent `.graph` SQLite file. `SENTINEL_CHAT_LLM_ENABLED`, `SENTINEL_LLM_BASE_URL`, `SENTINEL_LLM_MODEL` and `SENTINEL_LLM_API_KEY` enable optional LangChain routing; no model access means deterministic fallback. See `docs/20-conversation-runbook.md`.
