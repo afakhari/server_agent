@@ -1,19 +1,52 @@
 import io
+import os
 from pathlib import Path
 import tarfile
 import pytest
 from sentinel.deployer import safe_tree, DeployError, make_plan, claim_plan
 
 
-def test_safe_archive_excludes_secrets_symlinks_and_node_modules(tmp_path):
+def test_safe_archive_excludes_secrets_and_node_modules(tmp_path):
     (tmp_path / 'main.py').write_text('print("ok")')
     (tmp_path / '.env').write_text('API=secret')
     (tmp_path / 'node_modules').mkdir()
     (tmp_path / 'node_modules' / 'x.js').write_text('bad')
-    (tmp_path / 'escape.py').symlink_to(tmp_path / 'main.py')
     data, digest, paths = safe_tree(tmp_path)
     assert paths == ['main.py']
     assert safe_tree(tmp_path)[1] == digest
+    with tarfile.open(fileobj=io.BytesIO(data), mode='r:gz') as archive:
+        assert archive.getnames() == ['main.py']
+
+
+def test_safe_archive_excludes_symlinks_without_os_privileges(tmp_path, monkeypatch):
+    """Security guard works even where creating symlinks needs admin rights."""
+    (tmp_path / 'main.py').write_text('print("ok")')
+    fake_symlink = tmp_path / 'escape.py'
+    fake_symlink.write_text('print("should not be archived")')
+    original_is_symlink = Path.is_symlink
+
+    def is_symlink(path):
+        return path == fake_symlink or original_is_symlink(path)
+
+    monkeypatch.setattr(Path, 'is_symlink', is_symlink)
+    data, _, paths = safe_tree(tmp_path)
+    assert paths == ['main.py']
+    with tarfile.open(fileobj=io.BytesIO(data), mode='r:gz') as archive:
+        assert archive.getnames() == ['main.py']
+
+
+def test_safe_archive_excludes_real_symlinks_where_supported(tmp_path):
+    """Also test a real link on platforms/accounts that permit creating one."""
+    (tmp_path / 'main.py').write_text('print("ok")')
+    link = tmp_path / 'escape.py'
+    try:
+        link.symlink_to(tmp_path / 'main.py')
+    except OSError as exc:
+        if os.name == 'nt' and getattr(exc, 'winerror', None) == 1314:
+            pytest.skip('Windows account lacks symlink creation privilege; simulated guard is tested separately')
+        raise
+    data, _, paths = safe_tree(tmp_path)
+    assert paths == ['main.py']
     with tarfile.open(fileobj=io.BytesIO(data), mode='r:gz') as archive:
         assert archive.getnames() == ['main.py']
 
