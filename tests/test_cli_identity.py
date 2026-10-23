@@ -34,8 +34,9 @@ def test_source_cannot_override_cli_team(tmp_path):
     root.mkdir()
     (root/'main.py').write_text('print("ok")')
     (root/'liara.json').write_text('{"port":8000,"team-id":"override"}')
-    archive,_,_=safe_tree(root)
-    with pytest.raises(DeployError): cli.validate_cli_archive(archive)
+    # The packager rejects a source-controlled account/team override before
+    # it ever reaches the CLI validation layer.
+    with pytest.raises(DeployError): safe_tree(root)
     (root/'liara.json').write_text('{"platform":"python","port":8000}')
     archive,_,_=safe_tree(root)
     cli.validate_cli_archive(archive)
