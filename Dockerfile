@@ -7,7 +7,10 @@ COPY frontend/ ./
 RUN npm run build
 
 FROM python:3.12-slim AS runtime
-ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 \
+    SENTINEL_EXPOSURE_MODE=private-server \
+    SENTINEL_ALLOW_LIVE_WRITES=false \
+    SENTINEL_CLI_DEPLOY_ENABLED=false
 WORKDIR /app
 COPY requirements.txt ./
 RUN python -m pip install --no-cache-dir -r requirements.txt \
