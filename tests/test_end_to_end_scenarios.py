@@ -42,7 +42,7 @@ def payload(message, **opts):
 def test_new_user_to_evidence_to_one_use_approval_and_verification():
     with TestClient(app.app) as client:
         first = client.post("/api/chat/messages", json=payload(
-            "بعد از دیپلوی برنامه خطای ۵۰۰ و crash دارد"))
+            "سرویس worker crash کرده و خطای ۵۰۰ می‌دهد"))
         assert first.status_code == 200, first.text
         report = first.json()
         assert report["ui"]["type"] == "inspection"
@@ -245,3 +245,22 @@ def test_concurrent_duplicate_request_never_creates_two_message_pairs():
     assert len(threads) == 1
     assert len(conversation.thread_data(
         "concurrent-actor", threads[0]["id"])["messages"]) == 2
+
+
+
+@pytest.mark.parametrize("secret", [
+    "DATABASE_URL=postgres://admin:password@127.0.0.1:5432/appdb",
+    "redis://supersecret:verysecret@cache.private:6379/0",
+    "-----BEGIN PRIVATE KEY-----\nEXAMPLE-SECRET-PRIVATE-KEY-MATERIAL\n-----END PRIVATE KEY-----",
+    "AWS_SECRET_ACCESS_KEY=INSECURE_DEMO_ONLY_EXAMPLE_VALUE",
+])
+def test_infrastructure_credentials_never_saved_or_sent_to_models(secret):
+    index = str(abs(hash(secret)))[:8]
+    outcome = conversation.respond("operator", "demo", secret,
+                                   request_id="credential-fixture-" + index + "-000000000")
+    assert outcome["engine"] == "privacy-guard"
+    thread = conversation.thread_data("operator", outcome["thread_id"])
+    assert "supersecret" not in str(thread)
+    assert "INSECURE_DEMO_ONLY_EXAMPLE_VALUE" not in str(thread)
+    assert "EXAMPLE-SECRET-PRIVATE-KEY-MATERIAL" not in str(thread)
+    assert "password@" not in str(thread)
