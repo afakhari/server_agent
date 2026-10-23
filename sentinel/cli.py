@@ -8,6 +8,7 @@ The source is staged from a vetted archive rather than deploying a raw repo.
 from __future__ import annotations
 
 import io
+import json
 import os
 from pathlib import Path, PurePosixPath
 import re
@@ -46,6 +47,8 @@ def cli_settings() -> tuple[str, str, Path]:
         raise DeployError('نام حساب اختصاصی CLI نامعتبر است')
     if not home.is_absolute() or not home.is_dir() or home.is_symlink():
         raise DeployError('پوشه خصوصی حساب CLI وجود ندارد')
+    if os.name == 'posix' and home.stat().st_mode & 0o077:
+        raise DeployError('مجوز HOME اختصاصی CLI باید خصوصی باشد: chmod 700')
     # Owner-managed directory; npm may install the CLI launcher as a symlink.
     # Never silently fall back to the developer home.
     return str(executable), account, home
@@ -75,23 +78,59 @@ def invoke(args: list[str], *, timeout: int, cwd: str | None = None) -> subproce
 def preflight() -> dict:
     binary, account, _ = cli_settings()
     version = invoke(['--version'], timeout=10)
-    if version.returncode != 0 or '@liara/cli/' not in version.stdout:
+    if version.returncode != 0 or '@liara/cli/9.6.0' not in version.stdout:
         raise DeployError('نسخه یا اصالت خروجی Liara CLI قابل تأیید نیست')
     identity = invoke(['account', 'whoami', '--json', '--account', account], timeout=20)
     if identity.returncode != 0:
         raise DeployError('حساب تعریف‌شده در CLI معتبر نیست؛ ابتدا ورود CLI را انجام دهید')
-    # Command output can contain sensitive account metadata: don't return it.
-    return {'binary': binary, 'account': account,
+    try:
+        whoami = json.loads(identity.stdout)
+        identity_data = whoami.get('account') if isinstance(whoami, dict) else None
+        actual_alias = identity_data.get('name') if isinstance(identity_data, dict) else None
+        email = identity_data.get('email') if isinstance(identity_data, dict) else None
+    except (ValueError, TypeError, AttributeError) as exc:
+        raise DeployError('قالب JSON هویت CLI معتبر نیست') from exc
+    if actual_alias != account or not isinstance(email, str) or '@' not in email:
+        raise DeployError('هویت پاسخ CLI با نام حساب تنظیم‌شده مطابقت ندارد')
+    if whoami.get('team') is not None:
+        raise DeployError('نسخه آزمایشی فقط حساب شخصی CLI را پشتیبانی می‌کند؛ تیم انتخاب‌شده است')
+    # Email stays server-side and is never returned in the proposal/UI.
+    return {'binary': binary, 'account': account, 'email': email.lower(),
             'version': version.stdout.strip()[:120],
             'authentication': 'cli_account_checked', 'pricing': 'NOT_VERIFIED'}
 
 
 def _ensure_existing_test_app(project: str) -> None:
-    # Never let the CLI path create a new billable project as a side effect.
+    # A test project must already exist and both credentials must belong to
+    # the same personal Liara account; mismatched accounts can surprise users.
+    cli_identity = preflight()
     with LiaraClient() as client:
+        me = client.request('GET', '/v1/me')
+        user = me.get('user') if isinstance(me, dict) else None
+        email = user.get('email') if isinstance(user, dict) else None
+        if not isinstance(email, str) or email.lower() != cli_identity['email']:
+            raise DeployError('حساب CLI و توکن API متعلق به یک حساب تأییدشده نیستند')
         app = client.get_project(project)
         if not app.get('project_id'):
             raise DeployError('وجود پروژه آزمایشی از طریق API تأیید نشد')
+
+
+def validate_cli_archive(data: bytes) -> None:
+    """Prevent liara.json from overriding the fixed project account/team/build."""
+    with tarfile.open(fileobj=io.BytesIO(data), mode='r:gz') as archive:
+        members = [m for m in archive.getmembers() if m.name == 'liara.json']
+        for member in members:
+            if not member.isfile() or member.size > 100_000:
+                raise DeployError('liara.json نامعتبر یا بیش از حد بزرگ است')
+            stream = archive.extractfile(member)
+            if stream is None:
+                raise DeployError('خواندن liara.json ممکن نیست')
+            try:
+                config = json.loads(stream.read(100_001))
+            except (ValueError, UnicodeError) as exc:
+                raise DeployError('liara.json معتبر نیست') from exc
+            if not isinstance(config, dict) or set(config) - {'platform', 'port'}:
+                raise DeployError('liara.json دارای تنظیمات پیشرفته است؛ قبل از CLI به بررسی دستی نیاز دارد')
 
 
 def approval_schema(conn):
@@ -116,6 +155,7 @@ def make_cli_plan(actor: str, project: str, relative_path: str,
     if inspected['port'] is not None and inspected['port'] != port:
         raise DeployError('پورت انتخاب‌شده با فایل liara.json مطابقت ندارد')
     _archive, digest, filenames = safe_tree(directory)
+    validate_cli_archive(_archive)
     identifier = 'cli_' + secrets.token_urlsafe(28)
     with session() as conn:
         approval_schema(conn)
@@ -159,6 +199,7 @@ def claim_cli_plan(actor: str, identifier: str, project: str) -> tuple[str, str,
         data, current_sha, _ = safe_tree(repo_from_workspace(path))
         if current_sha != saved_sha:
             raise DeployError('سورس پس از پیش‌نمایش تغییر کرده است')
+        validate_cli_archive(data)
         cur = conn.execute(
             'UPDATE cli_deploy_approvals SET used=? WHERE id=? AND used IS NULL',
             (time.time(), identifier),
@@ -178,6 +219,7 @@ def perform_cli_deploy(project: str, platform: str, port: int, archive: bytes) -
     """Deploy only whitelisted archived files; do not pass user repo directly to CLI."""
     project = validate_name(project)
     _, account, _home = cli_settings()
+    validate_cli_archive(archive)
     _ensure_existing_test_app(project)
     with tempfile.TemporaryDirectory(prefix='sentinel-cli-') as temp:
         root = Path(temp)

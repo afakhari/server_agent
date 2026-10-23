@@ -45,6 +45,7 @@ def test_no_api_token_passed_to_subprocess(monkeypatch, tmp_path):
 
 def test_cli_approval_binds_project_and_content(monkeypatch, tmp_path):
     configure_cli(monkeypatch, tmp_path)
+    monkeypatch.setattr(cli, 'preflight', lambda: {'account':'demo-account','email':'demo@example.com','version':'@liara/cli/9.6.0'})
     workspace = tmp_path / 'workspace'
     root = workspace / 'sample'
     root.mkdir(parents=True)

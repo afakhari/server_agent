@@ -77,3 +77,12 @@ The project supports two **separately approved** publication paths:
 The CLI path is **off by default**, and both paths remain unverified against a live account in this development session. See [CLI integration runbook](docs/17-cli-integration.md). Read-only SRE collection still uses the API.
 
 Official docs: https://developers.liara.ir/ and https://github.com/liara-cloud/cli
+
+## راهنمای دقیق صاحب پروژه / Operator quick start
+
+راهنمای فارسی گام‌به‌گام: [docs/18-operator-steps-fa.md](docs/18-operator-steps-fa.md). برای اجرای محلی امن و بدون نوشتن کلید در فایل:
+
+    python scripts/run_local.py --mode demo --check
+    python scripts/run_local.py --mode demo
+
+پس از ساخت پروژه و توکن آزمایشی توسط مالک، حالت‌های `--mode read` و سپس `--mode test-cli` تنها با تأیید محدود فعال می‌شوند. **توکن را در چت یا ریپو قرار ندهید.** آزمون زنده هنوز انجام نشده است؛ CI نیز عمداً فعال نیست.
