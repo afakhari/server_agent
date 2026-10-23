@@ -24,10 +24,11 @@ from sentinel.handoff import make_handoff
 from sentinel.liara import LiaraClient, LiaraError, validate_name
 from sentinel.reasoner import narrative
 from sentinel.scout import inspect_repo
-from sentinel.security import create_approval, db_path
+from sentinel.security import cancel_approval, create_approval, db_path
 
 ROOT = Path(__file__).resolve().parents[1]
 _LOCK = threading.RLock()
+_TURN_LOCK = threading.RLock()
 
 
 def connect():
@@ -444,9 +445,56 @@ def invoke(state: AgentState, thread_id: str) -> dict:
             "awaiting_approval": bool(result.get("awaiting_approval")),
             "engine": "langgraph"}
 
+def revoke_previous_chat_approval(actor: str, thread_id: str | None) -> None:
+    """Invalidate earlier chat proposals before processing a new user turn.
+
+    This closes the gap between the visual disabled approval card and the
+    independent legacy /api/approve route.
+    """
+    if not thread_id:
+        return
+    with db_session() as conn:
+        row = conn.execute(
+            "SELECT ui FROM chat_messages WHERE thread_id=? "
+            "AND role='assistant' ORDER BY seq DESC LIMIT 1", (thread_id,)
+        ).fetchone()
+    if row is None:
+        return
+    try:
+        ui = json.loads(row["ui"])
+    except (ValueError, TypeError):
+        return
+    if ui.get("type") != "inspection":
+        return
+    report = ui.get("report") or {}
+    project = report.get("project")
+    if not isinstance(project, str):
+        return
+    for proposal in (report.get("proposals") or []):
+        if not isinstance(proposal, dict) or not isinstance(proposal.get("proposal_id"), str):
+            continue
+        try:
+            cancel_approval(proposal["proposal_id"], actor, project)
+        except (LookupError, RuntimeError, TimeoutError):
+            # Already executed/cancelled/expired: do not turn another user
+            # question into a failed request.
+            pass
+
+
 def respond(actor: str, mode: str, text: str, thread_id: str | None = None,
             project: str | None = None, scenario: str = "transient",
             request_id: str | None = None) -> dict:
+    # One-worker/private-operator model: serialize complete turns, not merely
+    # SQLite writes. Prevents out-of-order assistant cards across concurrent
+    # HTTP/SSE calls. Durable idempotency is separately enforced in SQLite.
+    with _TURN_LOCK:
+        return _respond_once(actor, mode, text, thread_id,
+                             project, scenario, request_id)
+
+
+def _respond_once(actor: str, mode: str, text: str, thread_id: str | None = None,
+                  project: str | None = None, scenario: str = "transient",
+                  request_id: str | None = None) -> dict:
     if not 1 <= len(text.strip()) <= 3000:
         raise ValueError("طول پیام باید بین ۱ و ۳۰۰۰ نویسه باشد.")
     if scenario not in {"transient", "env", "memory", "release", "healthy"}:
@@ -470,6 +518,7 @@ def respond(actor: str, mode: str, text: str, thread_id: str | None = None,
             safe_text = safe_text.replace(secret, "[REDACTED]")
             sensitive = True
     identifier, chosen = open_thread(actor, mode, thread_id, project)
+    revoke_previous_chat_approval(actor, thread_id)
     if sensitive:
         add_message(identifier, "user", "[پیام حاوی اطلاعات محرمانه؛ حذف‌شده از تاریخچه]")
         answer = "به‌نظر می‌رسد پیام شما حاوی کلید یا اطلاعات محرمانه بوده است. آن را ذخیره نکردم و به مدل نفرستادم. کلید را در سامانه صادرکننده بازنشانی کنید و فقط در قسمت امن تنظیمات سرور وارد کنید."
