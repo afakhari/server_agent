@@ -21,7 +21,7 @@ from sentinel.liara import LiaraClient, LiaraError, validate_name
 from sentinel.reasoner import narrative
 from sentinel.scout import inspect_repo, repo_from_workspace
 from sentinel.security import (
-    actor_digest, authorized, audit, consume_approval, create_approval,
+    actor_digest, authorized, audit, cancel_approval, consume_approval, create_approval,
     inspect_approval, read_audit
 )
 
@@ -384,6 +384,8 @@ def chat_approval(request: Request, payload: ChatApprovalRequest):
             execution = approve(request, ApproveRequest(
                 proposal_id=payload.proposal_id, confirm_project=payload.confirm_project))
         else:
+            cancel_approval(payload.proposal_id, actor, payload.confirm_project)
+            audit('approval_cancelled', thread['mode'], payload.confirm_project)
             execution = None
         try:
             return chat_service.resume(payload.thread_id, execution)
@@ -393,5 +395,7 @@ def chat_approval(request: Request, payload: ChatApprovalRequest):
             chat_service.add_message(payload.thread_id, 'assistant',
                                      'وضعیت عملیات ثبت شد؛ همگام‌سازی گراف نیازمند بررسی است.', outcome)
             return {'thread_id': payload.thread_id, 'answer': 'وضعیت عملیات ثبت شد؛ همگام‌سازی گراف نیازمند بررسی است.', 'ui': outcome, 'engine': 'recovery'}
+    except (RuntimeError, LookupError, TimeoutError) as exc:
+        raise HTTPException(409, str(exc)) from exc
     except PermissionError as exc:
         raise HTTPException(403, str(exc)) from exc
