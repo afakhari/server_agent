@@ -37,7 +37,7 @@ def test_no_api_token_passed_to_subprocess(monkeypatch, tmp_path):
         seen['shell'] = kwargs['shell']
         seen['stdin'] = kwargs['stdin']
         return cli.subprocess.CompletedProcess(
-            argv, returncode=0, stdout='@liara/cli/9.6.0\\n', stderr=''
+            argv, returncode=0, stdout='@liara/cli/9.6.0\n', stderr=''
         )
     monkeypatch.setattr(cli.subprocess, 'run', capture)
     result = cli.invoke(['--version'], timeout=4)
