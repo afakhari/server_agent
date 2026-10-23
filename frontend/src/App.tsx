@@ -271,10 +271,9 @@ export default function App() {
   const [error,setError] = useState('');
   const [engine,setEngine] = useState('');
   const [serverReadOnly,setServerReadOnly] = useState(true);
-  const [authRequired,setAuthRequired] = useState(false);
   useEffect(()=>{
     fetch('/api/config').then(r=>r.ok?r.json():Promise.reject(new Error('config unavailable')))
-      .then(data=>{setServerReadOnly(!Boolean(data.deployment_planning_available));setAuthRequired(Boolean(data.auth_required));})
+      .then(data=>{setServerReadOnly(!Boolean(data.deployment_planning_available));})
       .catch(()=>setServerReadOnly(true));
   },[]);
   const headers = useMemo(()=>({'Content-Type':'application/json','X-Sentinel-Access-Key':token}),[token]);
@@ -342,7 +341,6 @@ export default function App() {
         <div className="utilitybar">
           <label><Server size={15}/> شناسه پروژه<input value={project} onChange={e=>setProject(e.target.value)} placeholder="نام پروژه در لیارا" dir="ltr"/></label>
           {mode==='demo' && <label>سناریو<select value={scenario} onChange={e=>setScenario(e.target.value)}><option value="transient">خرابی فرایند</option><option value="env">متغیر محیطی</option><option value="memory">کمبود حافظه</option><option value="release">خطای انتشار</option><option value="healthy">سالم</option></select></label>}
-          <label className="access"><KeyRound size={15}/><input type="password" autoComplete="off" value={token} onChange={e=>setToken(e.target.value)} placeholder={authRequired?'کلید دسترسی Sentinel الزامی است':'کلید Sentinel در صورت نیاز'} aria-label="کلید دسترسی Sentinel"/></label>
           <button className="iconbutton" onClick={()=>void refreshThreads()} title="بروزرسانی تاریخچه"><RefreshCcw size={16}/></button>
         </div>
         <div className="chatregion">
