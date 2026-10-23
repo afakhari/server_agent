@@ -5,7 +5,7 @@
 </style></head><body><main class="layout">
 <header class="top"><div><div class="brand"><span class="dot"></span>LIARA SENTINEL</div><div class="subtitle">میز عملیات هوشمند، شواهد قابل‌ردیابی، اقدام با تأیید</div></div><span class="pill" id="modeLabel">Demo Sandbox</span></header>
 <div class="hero"><section class="panel"><div class="eyebrow">INCIDENT COMMAND CENTER / 01</div><h1>از نشانه خرابی تا تصمیمِ قابل دفاع</h1><p class="muted">علت احتمالی اختلال را از لاگ و وضعیت سرویس استخراج کنید؛ شواهد را ببینید، پیشنهاد را ارزیابی کنید و فقط با تأیید خودتان اجازه تغییر بدهید.</p>
-<div class="controls"><label class="field">محیط اجرا<select id="mode"><option value="demo">نمایشی و امن (بدون اتصال)</option><option value="live">لیارای واقعی (فقط خواندن)</option></select></label><label class="field">سناریوی نمایشی<select id="scenario"><option value="transient">خرابی فرایند و ری‌استارت</option><option value="env">متغیر محیطی تنظیم نشده</option><option value="memory">کمبود حافظه</option><option value="release">اختلال پس از انتشار</option><option value="healthy">وضعیت سالم</option></select></label><label class="field">شناسه پروژه<input id="project" value="demo-shop" maxlength="63" spellcheck="false" autocomplete="off"></label></div>
+<div class="controls"><label class="field">محیط اجرا<select id="mode"><option value="demo">دموی مسابقه، بدون ورود و کلید</option></select></label><label class="field">سناریوی نمایشی<select id="scenario"><option value="transient">خرابی فرایند و ری‌استارت</option><option value="env">متغیر محیطی تنظیم نشده</option><option value="memory">کمبود حافظه</option><option value="release">اختلال پس از انتشار</option><option value="healthy">وضعیت سالم</option></select></label><label class="field">شناسه پروژه<input id="project" value="demo-shop" maxlength="63" spellcheck="false" autocomplete="off"></label></div>
 <div class="btnrow"><button class="action primary" id="inspect">شروع بررسی شواهد ←</button><button class="action secondary" id="audit">سابقه عملیات</button><button class="action secondary" id="listProjects">نمایش برنامه‌های حساب لیارا</button></div><div id="projectListResult" class="hidden notice" style="margin-top:12px" aria-live="polite"></div></section>
 <aside class="panel"><div class="eyebrow">HOW SENTINEL WORKS</div><h3>چه اتفاقی می‌افتد؟</h3><div class="steps"><div class="step"><span class="stepnum">۱</span>جمع‌آوری شواهد مستقل</div><div class="step"><span class="stepnum">۲</span>ساخت فرضیه با علت و محدودیت</div><div class="step"><span class="stepnum">۳</span>پیشنهاد اقدام متناسب با ریسک</div><div class="step"><span class="stepnum">۴</span>تأیید مشخص و یک‌بارمصرف</div><div class="step"><span class="stepnum">۵</span>بررسی نتیجه، بدون ادعای جعلی</div></div><p class="muted" style="font-size:12px;margin-top:30px">در نسخه نمایشی همه داده‌ها مصنوعی‌اند. در حالت واقعی، کلید API فقط در سرور خوانده می‌شود و اجرای تغییرات به‌صورت پیش‌فرض غیرفعال است.</p></aside></div>
 <section class="section" id="report" aria-live="polite"><div class="sectionheader"><h2>گزارش بررسی</h2><div class="chips" id="badges"><span class="chip">هنوز بررسی انجام نشده</span></div></div><div class="grid"><div class="panel"><div class="mini-title">فرضیه‌های تشخیصی</div><div id="hypotheses" class="empty">برای دیدن گزارش، سناریو را اجرا کنید.</div><div id="recommendation"></div></div><div class="panel"><div class="mini-title">دفتر شواهد <span id="count" class="chip">۰</span></div><ul id="evidence" class="evidence"></ul><div id="limitations"></div></div></div></section>
@@ -17,7 +17,7 @@
 <script>
 const el=id=>document.getElementById(id); let current=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let accessKey='';async function api(path,opts={}){const auth=accessKey?{'X-Sentinel-Access-Key':accessKey}:{};const r=await fetch(path,{...opts,headers:{'Content-Type':'application/json',...auth,...(opts.headers||{})}});let data;try{data=await r.json()}catch{data={}};if(!r.ok)throw new Error(data.detail||'خطای سرور');return data}
+async function api(path,opts={}){const r=await fetch(path,{...opts,headers:{'Content-Type':'application/json',...(opts.headers||{})}});let data;try{data=await r.json()}catch{data={}};if(!r.ok)throw new Error(data.detail||'خطای سرور');return data}
 function render(x){current=x;el('badges').innerHTML=`<span class="chip ${x.mode==='demo'?'amber':'green'}">${x.mode==='demo'?'شبیه‌سازی':'داده زنده'}</span><span class="chip">${esc(x.verdict)}</span><span class="chip">${esc(x.project)}</span>`;
 el('hypotheses').className='';el('hypotheses').innerHTML=x.hypotheses.map(h=>`<article class="hyp"><div class="chips" style="margin-bottom:10px"><span class="chip ${h.confidence==='بالا'?'amber':''}">اطمینان: ${esc(h.confidence)}</span><span class="chip">شواهد: ${esc(h.evidence_ids.join('، '))}</span></div><h3>${esc(h.title)}</h3><p>${esc(h.reason)}</p></article>`).join('');el('recommendation').innerHTML=`<div class="notice">اقدام پیشنهادی: ${esc(x.recommendation)}</div><div class="notice" style="margin-top:10px"><strong>تحلیل ترکیبی (${esc(x.ai_commentary?.mode||'rules-only')})</strong><p>${esc(x.ai_commentary?.narrative||'')}</p></div>`;
 el('count').textContent=x.evidence.length;el('evidence').innerHTML=x.evidence.map(e=>`<li><strong>${esc(e.id)}</strong> · ${esc(e.text)}<span class="source">${esc(e.source)}</span></li>`).join('');el('limitations').innerHTML=x.limitations.length?`<div class="warning" style="margin-top:12px">${x.limitations.map(esc).join(' • ')}</div>`:'';
@@ -26,14 +26,11 @@ let a=x.proposals[0];el('operation').classList.toggle('hidden',!a);el('confirmPr
 el('listProjects').onclick=async()=>{
   const box=el('projectListResult');
   box.classList.remove('hidden');
-  if(el('mode').value!=='live'){
-    box.textContent='ابتدا محیط اجرا را روی لیارای واقعی (فقط خواندن) بگذارید.';
+  if(el('mode').value==='demo'){
+    box.textContent='در نمونه مسابقه، پروژه مصنوعی demo-shop آماده بررسی است. داده‌ای از حساب واقعی خوانده نمی‌شود.';
     return;
   }
-  if(!accessKey){
-    box.textContent='دسترسی واقعی در این نشست فعال نیست. پیکربندی احراز هویت در سرور لازم است.';
-    return;
-  }
+  // Real account listing is never enabled through the anonymous demo.
   box.textContent='در حال دریافت فهرست برنامه‌های قابل دسترسی…';
   try{
     const data=await api('/api/projects');
