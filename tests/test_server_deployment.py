@@ -14,6 +14,7 @@ def private_profile(monkeypatch, tmp_path):
     monkeypatch.setattr(sentinel_app, 'ROOT', tmp_path)
     monkeypatch.setenv('SENTINEL_EXPOSURE_MODE', 'private-server')
     monkeypatch.setenv('SENTINEL_ACCESS_KEY', 'safe' + '0123456789ABCDEFghijklmnopqrstuvXYZ')
+    (tmp_path / 'persist').mkdir()
     monkeypatch.setenv('SENTINEL_DB_PATH', str(tmp_path / 'persist' / 'sentinel.sqlite3'))
     monkeypatch.setenv('SENTINEL_ALLOW_LIVE_WRITES', 'false')
     monkeypatch.setenv('SENTINEL_CLI_DEPLOY_ENABLED', 'false')
