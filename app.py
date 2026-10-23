@@ -20,6 +20,7 @@ from sentinel.onboarding import AssessmentInput, assess as assess_onboarding
 
 from sentinel.engine import diagnose, mock_snapshot
 from sentinel.health import verify_http
+from sentinel.handoff import make_handoff
 from sentinel.deployer import DeployError, make_plan, claim_plan, perform_deploy
 from sentinel.cli import make_cli_plan, claim_cli_plan, perform_cli_deploy, configured as cli_enabled
 from sentinel.liara import LiaraClient, LiaraError, validate_name
@@ -216,6 +217,7 @@ def inspect(request: Request, payload: InspectRequest):
     except LiaraError as exc:
         raise HTTPException(502, str(exc)) from exc
     report = diagnose(snap)
+    report['coding_handoff'] = make_handoff(report)
     report['ai_commentary'] = narrative(report)
     if payload.mode == 'live' and not live_writes_permitted(snap['name']):
         if report['proposals']:
