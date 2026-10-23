@@ -67,12 +67,12 @@ function Report({data, onApproval, resolved}:{data:any;onApproval:(proposal:any,
     </div>}
   </div>;
 }
-function DeployCard({data,token,activeProject,mode,onProject}:{data:UIPayload;token:string;activeProject:string;mode:string;onProject:(p:string)=>void}) {
+function DeployCard({data,token,activeProject,mode,onProject,serverReadOnly}:{data:UIPayload;token:string;activeProject:string;mode:string;onProject:(p:string)=>void;serverReadOnly:boolean}) {
   const [path,setPath] = useState('fastapi-shop');
   const [project,setProject] = useState(data.project === 'demo-shop' ? '' : (data.project || activeProject || ''));
   const [platform,setPlatform] = useState(data.scout?.platform || 'python');
   const [port,setPort] = useState(String(data.scout?.port || '8000'));
-  const [backend,setBackend] = useState('api-existing');
+  const [backend,setBackend] = useState(data.backend || 'api-existing');
   const [planId,setPlanId] = useState('');
   const [plan,setPlan] = useState<any>(null);
   const [scan,setScan] = useState<any>(data.scout || null);
@@ -91,6 +91,7 @@ function DeployCard({data,token,activeProject,mode,onProject}:{data:UIPayload;to
   }
   return <div className="toolcard">
     <div className="cardhead"><strong><CloudUpload size={17}/> استقرار هدایت‌شده</strong><span className="tag">{mode==='demo'?'آزمایش نمایشی':'محیط واقعی محدود'}</span></div>
+    {serverReadOnly && mode==='live' && <div className="caution"><ShieldCheck size={15}/> این سرور فقط برای بررسی خواندنی فعال است. پیش‌نمایش انتشار و عملیات واقعی در این محیط غیرفعال‌اند؛ برای انتشار، سرور آزمایشی مجاز و تنظیمات مستقل لازم است.</div>}
     {scan && <div className="finding"><b>شناسایی پروژه:</b> {scan.framework} / {scan.platform} · پورت {scan.port}<div className="secondarytext">متغیرهای لازم: {(scan.required_env_names||[]).join('، ')||'گزارش نشده'}</div></div>}
     <div className="formgrid">
       <label>مسیر سورس در فضای کاری مجاز<input value={path} onChange={e=>setPath(e.target.value)} dir="ltr"/></label>
@@ -102,7 +103,7 @@ function DeployCard({data,token,activeProject,mode,onProject}:{data:UIPayload;to
     </div>
     <div className="actions">
       <button className="secondary" disabled={busy||mode!=='live'||!token} onClick={()=>run(()=>api('/api/scout',{path}),x=>setScan(x.analysis))}>تحلیل سورس</button>
-      <button className="primary" disabled={busy||mode!=='live'||!token||!project||!path} onClick={()=>run(()=>api('/api/deploy/plan',{backend,project,path,platform,port:Number(port),plan_id:backend==='api'?planId:'existing'}),x=>{setPlan(x);setConfirmation('');onProject(x.project);})}>پیش‌نمایش انتشار</button>
+      <button className="primary" disabled={busy||serverReadOnly||mode!=='live'||!token||!project||!path} onClick={()=>run(()=>api('/api/deploy/plan',{backend,project,path,platform,port:Number(port),plan_id:backend==='api'?planId:'existing'}),x=>{setPlan(x);setConfirmation('');onProject(x.project);})}>پیش‌نمایش انتشار</button>
     </div>
     {mode==='demo' && <div className="caution">این نمونه شبیه‌سازی است. عملیات انتشار واقعی فقط با اتصال امن و مجوز سمت سرور فعال می‌شود.</div>}
     {plan && <div className="approval"><strong>پیش‌نمایش عملیات واقعی</strong>
@@ -119,12 +120,12 @@ function DeployCard({data,token,activeProject,mode,onProject}:{data:UIPayload;to
     {error && <div role="alert" className="caution">{error}</div>}
   </div>;
 }
-function ToolCard({ui,onApproval,onProject,onAction,token,project,mode,resolved}:{ui?:UIPayload;onApproval:(p:any,a:boolean,c:string)=>Promise<void>;onProject:(p:string)=>void;onAction:(prompt:string)=>void;token:string;project:string;mode:string;resolved:boolean}) {
+function ToolCard({ui,onApproval,onProject,onAction,token,project,mode,resolved,serverReadOnly}:{ui?:UIPayload;onApproval:(p:any,a:boolean,c:string)=>Promise<void>;onProject:(p:string)=>void;onAction:(prompt:string)=>void;token:string;project:string;mode:string;resolved:boolean;serverReadOnly:boolean}) {
   const [listing,setListing] = useState<any[]>([]);
   const [error,setError] = useState('');
   if (!ui?.type) return null;
   if (ui.type==='inspection') return <Report data={ui} onApproval={onApproval} resolved={resolved}/>;
-  if (ui.type==='deploy') return <DeployCard data={ui} token={token} activeProject={project} mode={mode} onProject={onProject}/>;
+  if (ui.type==='deploy') return <DeployCard data={ui} token={token} activeProject={project} mode={mode} onProject={onProject} serverReadOnly={serverReadOnly}/>;
   if (ui.type==='execution') return <div className="toolcard"><div className="cardhead"><strong><ClipboardCheck size={17}/> نتیجه عملیات</strong></div>
     <p>ارسال: {ui.result?.execution||'نامشخص'}</p><p>راستی‌آزمایی: {ui.result?.verification||'نامشخص'}</p>
     <p>{ui.result?.message||'اطلاعات بیشتری موجود نیست.'}</p></div>;
@@ -191,6 +192,12 @@ export default function App() {
   const [sideOpen,setSideOpen] = useState(()=>window.innerWidth>850);
   const [error,setError] = useState('');
   const [engine,setEngine] = useState('');
+  const [serverReadOnly,setServerReadOnly] = useState(true);
+  useEffect(()=>{
+    fetch('/api/config').then(r=>r.ok?r.json():Promise.reject(new Error('config unavailable')))
+      .then(data=>setServerReadOnly(data.server_profile!=='local'))
+      .catch(()=>setServerReadOnly(true));
+  },[]);
   const headers = useMemo(()=>({'Content-Type':'application/json','X-Sentinel-Access-Key':token}),[token]);
   const refreshThreads = useCallback(async()=>{try{const r=await fetch('/api/chat/threads',{headers});if(!r.ok)return;const json=await r.json();setThreads(json.threads||[]);}catch{}},[headers]);
   useEffect(()=>{void refreshThreads();},[refreshThreads]);
@@ -275,7 +282,7 @@ export default function App() {
                       {messages.find(m=>m.id===message.id)?.ui?.classification?.certainty!=='clear'&&' · نیاز به انتخاب یا توضیح بیشتر'}
                     </div>}
                     <ToolCard ui={messages.find(m=>m.id===message.id)?.ui} onApproval={approval} onProject={onProject} onAction={(prompt)=>void send(prompt)} token={token} project={project} mode={mode}
-                      resolved={messages.slice(messages.findIndex(m=>m.id===message.id)+1).some(m=>m.role==='user'||m.ui?.type==='execution'||m.ui?.type==='notice')}/>
+                      resolved={messages.slice(messages.findIndex(m=>m.id===message.id)+1).some(m=>m.role==='user'||m.ui?.type==='execution'||m.ui?.type==='notice')} serverReadOnly={serverReadOnly}/>
                   </div></MessagePrimitive.Root>}
               </ThreadPrimitive.Messages>
               {running&&<div className="statusline" aria-live="polite"><LoaderCircle size={16} className="spin"/>{status}</div>}
