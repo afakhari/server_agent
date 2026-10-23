@@ -39,3 +39,7 @@
 - کارت‌های تشخیص، شواهد، استقرار، تأیید و وضعیت اجرا به frontend اضافه شدند؛ streaming فعلاً رویداد وضعیت و پایان است، نه delta متن.
 - آزمون‌های `tests/test_conversation.py` نوشته شده‌اند؛ **هنوز در محیط ادغام با پکیج‌های LangGraph و Node اجرا نشده‌اند**.
 - حساب واقعی لیارا، قیمت/پلن واقعی، پایش چندمرحله‌ای و release-ready verification هنوز LIVE_UNVERIFIED هستند. محصولات production multi-user و coding agent خارج از این vertical slice هستند.
+
+
+### وضعیت آزمون خودکار شاخه Conversational
+GitHub Actions workflow در PR #26 ایجاد شد. اجرای اولیه در تاریخ 2026-10-23 با نتیجه failure و **بدون هیچ step گزارش‌شده** پایان یافت؛ متن log از رابط GitHub در این نشست در دسترس نبود. بنابراین هیچ نتیجه‌ای درباره موفقیت یا شکست واقعی unit tests / frontend build نمی‌توان گرفت؛ QA همچنان BLOCKED / UNVERIFIED است و باید با دسترسی به runner یا اجرای محلی تکمیل شود.
