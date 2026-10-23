@@ -148,6 +148,14 @@ def classify(message: str) -> Decision:
                         (_ACTIONS["deploy"], _ACTIONS["incident"], _ACTIONS["projects"]),
                         "سلام! می‌توانم در انتشار، بررسی خطا و مشاهده وضعیت برنامه‌ها کمکتان کنم.")
     hits = {key for key, patterns in _PATTERNS.items() if _has(t, *patterns)}
+    # The official brief expects guided first-time infrastructure selection.
+    # "Which plan fits my website?" is not a request to buy a plan or deploy.
+    if _has(t, r"زیرساخت مناسب", r"چه زیرساخت", r"چه پلنی", r"کدوم پلن",
+            r"پلن مناسب", r"انتخاب پلن", r"پلن پیشنهاد", r"منابع مورد نیاز",
+            r"برای سایت.{0,30}(?:پلن|زیرساخت)", r"\b(?:which plan|sizing advice|capacity planning)\b"):
+        return Decision("capacity", "deploy", "clear",
+                        tuple(sorted(hits | {"capacity"})), (),
+                        "ابتدا نیازهای پروژه و سورس را ارزیابی می‌کنم. انتخاب پلن، هزینه یا انتشار تا تأیید واقعی انجام نمی‌شود.")
     if not hits and _has(t, r"چیکار می تونی", r"چه کارهایی", r"راهنما", r"\bhelp\b", r"از کجا شروع"):
         return Decision("help", "guide", "clear", ("help",),
                         (_ACTIONS["deploy"], _ACTIONS["incident"], _ACTIONS["domains"]),
