@@ -21,3 +21,14 @@ def test_access_key_required_for_live(monkeypatch):
         assert False
     except PermissionError:
         pass
+
+
+def test_live_approval_actor_is_team_bound(monkeypatch):
+    monkeypatch.setenv('SENTINEL_ACCESS_KEY', 'a-long-operator-access-key-over-24-chars')
+    monkeypatch.delenv('LIARA_TEAM_ID', raising=False)
+    personal=actor_digest('a-long-operator-access-key-over-24-chars','live')
+    monkeypatch.setenv('LIARA_TEAM_ID', '0123456789abcdef01234567')
+    team=actor_digest('a-long-operator-access-key-over-24-chars','live')
+    assert team != personal
+    monkeypatch.delenv('LIARA_TEAM_ID', raising=False)
+    assert actor_digest('a-long-operator-access-key-over-24-chars','live') == personal
