@@ -100,7 +100,7 @@ function DeployCard({data,token,activeProject,mode,onProject}:{data:UIPayload;to
     {error && <div role="alert" className="caution">{error}</div>}
   </div>;
 }
-function ToolCard({ui,onApproval,onProject,token,project,mode,resolved}:{ui?:UIPayload;onApproval:(p:any,a:boolean,c:string)=>Promise<void>;onProject:(p:string)=>void;token:string;project:string;mode:string;resolved:boolean}) {
+function ToolCard({ui,onApproval,onProject,onAction,token,project,mode,resolved}:{ui?:UIPayload;onApproval:(p:any,a:boolean,c:string)=>Promise<void>;onProject:(p:string)=>void;onAction:(prompt:string)=>void;token:string;project:string;mode:string;resolved:boolean}) {
   const [listing,setListing] = useState<any[]>([]);
   const [error,setError] = useState('');
   if (!ui?.type) return null;
@@ -117,6 +117,33 @@ function ToolCard({ui,onApproval,onProject,token,project,mode,resolved}:{ui?:UIP
       {error && <p role="alert" className="caution">{error}</p>}
     </div>;
   }
+  if(ui.type==='guidance'||ui.type==='suggestions') return <div className="toolcard">
+    <div className="cardhead"><strong><Sparkles size={17}/> {ui.certainty==='ambiguous'?'انتخاب مسیر درخواست':'راهنمای قدم بعدی'}</strong>
+      <span className="tag">بدون اجرای عملیات</span>
+    </div>
+    {ui.certainty==='ambiguous'&&<p className="secondarytext">چند برداشت ممکن است؛ برای جلوگیری از اقدام اشتباه، یک مسیر را انتخاب کنید.</p>}
+    {Array.isArray(ui.actions)&&ui.actions.length>0&&<div className="guideactions" role="group" aria-label="مسیرهای پیشنهادی">
+      {ui.actions.map((action:any,i:number)=><button key={i} className="secondary" onClick={()=>onAction(action.prompt)}>{action.label} <ArrowUp size={14}/></button>)}
+    </div>}
+    {(ui.limitations||[]).map((notice:string,i:number)=><p className="secondarytext" key={i}><ShieldCheck size={13}/> {notice}</p>)}
+    {ui.type==='suggestions'&&(ui.items||[]).map((suggestion:string,i:number)=><button className="projectchoice" key={i} onClick={()=>onAction(suggestion)}>{suggestion} <ArrowUp size={15}/></button>)}
+  </div>;
+  if(ui.type==='domains') return <div className="toolcard"><div className="cardhead"><strong><ShieldCheck size={17}/> دامنه و SSL</strong><span className="tag">خواندنی · Live</span></div>
+    <p>برنامه: <b dir="ltr">{ui.project}</b></p>
+    {ui.domains?.length?ui.domains.map((domain:any,i:number)=><div key={i} className="hypothesis">
+      <b dir="ltr">{domain.name||domain._id||'شناسه نامشخص'}</b>
+      <p>وضعیت دامنه: {domain.status||'نامعلوم'} · گواهی: {domain.certificatesStatus||'نامعلوم'}</p>
+    </div>):<p>دامنه‌ای در پاسخ فعلی حساب یافت نشد. این نتیجه به معنی نبود دامنه در سایر حساب‌ها نیست.</p>}
+    {(ui.limitations||[]).map((item:string,i:number)=><p key={i} className="secondarytext">{item}</p>)}
+  </div>;
+  if(ui.type==='releases') return <div className="toolcard"><div className="cardhead"><strong><History size={17}/> تاریخچه انتشار</strong><span className="tag">خواندنی · Live</span></div>
+    <p>برنامه: <b dir="ltr">{ui.project}</b></p>
+    {ui.releases?.length?ui.releases.map((release:any,i:number)=><div key={i} className="hypothesis">
+      <b dir="ltr">{release.tag||release._id||'بدون شناسه'}</b>
+      <p>وضعیت اعلام‌شده API: {release.state||'نامشخص'}</p>
+    </div>):<p>هیچ نسخه‌ای در پاسخ فعلی ثبت نشده است.</p>}
+    {(ui.limitations||[]).map((item:string,i:number)=><p key={i} className="secondarytext">{item}</p>)}
+  </div>;
   if(ui.type==='error'||ui.type==='notice')return <p className="caution">{ui.text}</p>;
   return null;
 }
@@ -224,7 +251,7 @@ export default function App() {
                 {({message})=>message.role==='user'?
                   <MessagePrimitive.Root className="userrow"><div className="userbubble"><MessagePrimitive.Parts/></div></MessagePrimitive.Root>:
                   <MessagePrimitive.Root className="assistantrow"><div className="assistantavatar"><Activity size={17}/></div><div className="assistantbody"><div className="assistanttext"><MessagePrimitive.Parts/></div>
-                    <ToolCard ui={messages.find(m=>m.id===message.id)?.ui} onApproval={approval} onProject={onProject} token={token} project={project} mode={mode}
+                    <ToolCard ui={messages.find(m=>m.id===message.id)?.ui} onApproval={approval} onProject={onProject} onAction={(prompt)=>void send(prompt)} token={token} project={project} mode={mode}
                       resolved={messages.slice(messages.findIndex(m=>m.id===message.id)+1).some(m=>m.ui?.type==='execution'||m.ui?.type==='notice')}/>
                   </div></MessagePrimitive.Root>}
               </ThreadPrimitive.Messages>
