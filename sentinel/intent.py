@@ -88,8 +88,10 @@ _PATTERNS: dict[str, tuple[str, ...]] = {
     "incident": (r"خطا", r"خراب", r"کار نمی کن", r"از کار افتاد", r"\b(?:500|502|503|504|404|oom|crash|failed|error|exception|down|bug)\b",
                  r"باز نمی ش", r"کند شد", r"بالا نمیاد", r"در دسترس نیست", r"مشکل"),
     "deploy": (r"دیپلوی", r"دپلوی", r"استقرار", r"منتشر", r"انتشار بده",
-               r"دیپلو", r"راه انداز", r"\bdeploy\b", r"\bpublish\b", r"آپلود سورس"),
-    "health": (r"سلامت", r"پایش", r"وضعیت سرویس", r"داون", r"\buptime\b", r"\bhealth\b", r"\bstatus\b"),
+               r"دیپلو", r"راه انداز", r"ساخت پروژه", r"ساخت برنامه", r"ایجاد پروژه",
+               r"\bdeploy\b", r"\bpublish\b", r"آپلود سورس"),
+    "health": (r"سلامت", r"پایش", r"وضعیت سرویس", r"وضعیت پروژه",
+               r"سایتم بالا هست", r"سرویس بالا هست", r"داون", r"\buptime\b", r"\bhealth\b", r"\bstatus\b"),
     "projects": (r"لیست پروژه", r"فهرست پروژه", r"لیست برنامه", r"فهرست برنامه", r"پروژه هام",
                  r"پروژه ها", r"\blist (?:apps|projects)\b"),
     "releases": (r"نسخه ها", r"انتشارها", r"تاریخچه انتشار", r"آخرین نسخه", r"نسخه جدید",
@@ -112,7 +114,7 @@ _PATTERNS: dict[str, tuple[str, ...]] = {
     "notifications": (r"هشدار", r"اعلان", r"خبرم کن", r"وقتی خراب شد", r"\b(?:alert|notify|notification)\b"),
 }
 _DESTRUCTIVE = (r"حذف (?:کن|بکن|پروژه|برنامه|سرویس|اطلاعات)", r"پاک (?:کن|کردن|بکن)",
-                r"\b(?:delete|drop|destroy|terminate|wipe)\b", r"دیتابیس رو پاک", r"همه رو حذف")
+                r"حذف دامنه", r"حذف دیتابیس", r"\b(?:delete|drop|destroy|terminate|wipe)\b", r"دیتابیس رو پاک", r"همه رو حذف")
 _OUT_OF_SCOPE = (r"رمز عبورم رو عوض", r"پول (?:انتقال|واریز)", r"از حسابم پرداخت", r"دامنه رو خرید",
                  r"خرید دامنه", r"پرداخت کن", r"\b(?:buy domain|transfer funds)\b")
 _CONFIRM = (r"^(?:بله|آره|اوکی|باشه|تایید|تأیید|yes|ok|confirm)\W*$",)
@@ -155,6 +157,18 @@ def classify(message: str) -> Decision:
                         tuple(_ACTIONS[k] for k in ("billing", "security") if k in hits),
                         "درخواست شما را توضیحی در نظر گرفتم. هیچ عملیاتی اجرا یا برای تأیید ارسال نمی‌شود.")
 
+    # Checking an earlier deployment is not requesting another deployment.
+    if "deploy" in hits and _has(t,
+            r"(?:وضعیت|آخرین|تاریخچه|نتیجه|موفق شد|چه شد).{0,32}(?:دیپلوی|دپلوی|استقرار|انتشار|deploy)",
+            r"(?:دیپلوی|دپلوی|استقرار|انتشار|deploy).{0,32}(?:چه شد|موفق شد|وضعیت|نتیجه)"):
+        return Decision("releases", "releases", "clear", tuple(sorted(hits)))
+    # Pricing questions about deployment must not open a write-oriented wizard.
+    if "deploy" in hits and "billing" in hits and _has(t, r"چقدر", r"هزینه", r"قیمت", r"\bcost\b", r"\bprice\b") and not _has(
+            t, r"منتشر کن", r"دیپلوی کن", r"استقرار بده", r"\bdeploy it\b"):
+        return Decision("billing", "guide", "clear", tuple(sorted(hits)))
+    # Domain setup/how-to is not the same as an authorized DNS mutation.
+    if "domains" in hits and _has(t, r"چطور", r"چگونه", r"وصل کنم", r"تنظیم کنم", r"\bhow to\b"):
+        return Decision("domain_setup", "guide", "clear", tuple(sorted(hits)))
     # Emergency signals and log text are evidence requests, not deployment.
     if "notifications" in hits and _has(t, r"وقتی", r"هر وقت", r"به محض", r"\bif\b"):
         return Decision("notifications", "guide", "clear", tuple(sorted(hits)))
