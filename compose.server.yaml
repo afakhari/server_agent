@@ -1,4 +1,4 @@
-# Single-host, private evaluation deployment. NOT a multi-tenant public service.
+# Single-host competition showcase. Anonymous access is limited to simulated demo workflows.
 name: liara-sentinel-staging
 services:
   sentinel:
@@ -39,7 +39,7 @@ services:
       sentinel:
         condition: service_healthy
     volumes:
-      - ./deploy/server/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./deploy/server/Caddyfile.competition:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
     ports:
