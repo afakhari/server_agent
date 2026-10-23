@@ -70,7 +70,7 @@ function Report({data, onApproval, resolved}:{data:any;onApproval:(proposal:any,
         }
       }}><ClipboardCheck size={15}/> کپی خلاصه قابل‌ارسال به Coding Agent</button>
       {handoffNotice && <p role="status" className="secondarytext">{handoffNotice}</p>}
-    </div>
+    </div>}
     {report.ai_commentary?.mode === 'advisory-llm' && <p className="advisory"><Sparkles size={14}/> {report.ai_commentary.narrative}</p>}
     <button className="plainbtn" onClick={()=>setShowEvidence(v=>!v)} aria-expanded={showEvidence}><List size={15}/> {showEvidence?'بستن شواهد':'مشاهده شواهد و منابع'} <ChevronDown size={14}/></button>
     {showEvidence && <div className="evidencelist">{(report.evidence||[]).map((ev:any)=><div className="evidence" key={ev.id}><strong dir="ltr">{ev.id}</strong> · {ev.text}<small dir="ltr">{ev.source}</small></div>)}</div>}
