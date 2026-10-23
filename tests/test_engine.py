@@ -47,3 +47,22 @@ def test_old_crash_log_on_running_app_does_not_trigger_restart():
     sample['project']['status']='running'
     out=diagnose(sample)
     assert not out['proposals']
+
+def test_live_release_timing_builds_only_low_confidence_correlation():
+    snap=mock_snapshot('healthy')
+    snap['suspected_recent_change']=False
+    snap['logs']=[{'datetime':'2026-10-23T12:05:00Z','message':'HTTP 500 internal server error'}]
+    snap['releases']['releases'][0]['createdAt']='2026-10-23T12:00:00Z'
+    result=diagnose(snap)
+    correlations=[h for h in result['hypotheses'] if h['code']=='release_correlation']
+    assert len(correlations)==1
+    assert correlations[0]['confidence']=='پایین'
+    assert correlations[0]['evidence_ids']
+
+def test_no_temporal_correlation_without_error_log():
+    snap=mock_snapshot('healthy')
+    snap['suspected_recent_change']=False
+    snap['logs']=[{'datetime':'2026-10-23T12:05:00Z','message':'GET /health 200 OK'}]
+    snap['releases']['releases'][0]['createdAt']='2026-10-23T12:00:00Z'
+    result=diagnose(snap)
+    assert not any(h['code']=='release_correlation' for h in result['hypotheses'])

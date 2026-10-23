@@ -61,3 +61,6 @@ The competition scores 300 points: Liara integration 100; intelligence and troub
 Primary API spec: https://github.com/liara-cloud/openapi/blob/main/spec/paas.yaml
 
 Documentation review date: **2026-10-23**. Details must be revalidated against the API spec and runtime responses as development proceeds.
+
+## Delivery policy for this development phase
+No automated GitHub CI runs by design. New focused offline checks are in tests/; run locally when preparing a release. Live Liara operations remain unverified. Canonical implementation is app.py + sentinel/ (not the superseded parallel experimental branch). See docs/16-implementation-status.md.

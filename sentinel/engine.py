@@ -6,6 +6,7 @@ SECRET_PATTERNS = [
     (re.compile(r'(?i)(bearer\s+)[A-Za-z0-9._~+/=-]{8,}'), r'\1[REDACTED]'),
     (re.compile(r'(?i)((?:password|secret|token|api[_-]?key)\s*[=:]\s*)[^\s,;]+'), r'\1[REDACTED]'),
     (re.compile(r'(?i)(postgres(?:ql)?|mysql|redis)://[^\s@]+@'), r'\1://[REDACTED]@'),
+    (re.compile(r'(?i)((?:DATABASE_URL|REDIS_URL)\s*=\s*)[^\s,;]+'), r'\1[REDACTED]'),
 ]
 
 def redact(value):
@@ -59,7 +60,24 @@ def diagnose(snapshot):
         hypothesis('transient','خرابی احتمالی فرایند اجرایی', 'متوسط', 'نشانه خرابی موقتی پردازش دیده می‌شود. ری‌استارت می‌تواند اقدام موقت باشد، اما علت بنیادی را لزوماً حل نمی‌کند.', log_ids + status_ids,'restart')
     if re.search(r'(500 internal server error|http 500|status=500)',log_text) and not hypotheses:
         hypothesis('http500','خطای HTTP 500 با علت نامشخص', 'پایین', 'خطا ثبت شده ولی برای تعیین علت به شواهد بیشتری نیاز است.',log_ids,'investigate')
-    if snapshot.get('suspected_recent_change') and release_ids:
+    # A release coinciding with error logs is a clue, not evidence of causality.
+    # Live responses expose createdAt and datetime per Liara OpenAPI; no timing is inferred
+    # when either source lacks a parseable timestamp.
+    def parse_timestamp(value):
+        if not isinstance(value, str): return None
+        try:
+            parsed = datetime.fromisoformat(value.replace('Z', '+00:00'))
+            return parsed if parsed.tzinfo else None
+        except ValueError: return None
+    release_history = (snapshot.get('releases') or {}).get('releases') or []
+    release_times = [parse_timestamp(x.get('createdAt')) for x in release_history[:5] if isinstance(x, dict)]
+    log_times = [parse_timestamp(x.get('datetime')) for x in (snapshot.get('logs') or [])[-25:] if isinstance(x, dict)]
+    error_log = bool(re.search(r'(http 500|internal server error|traceback|error|exception|crashed|oomkilled)', log_text))
+    temporal_match = error_log and any(
+        release_time and log_time and 0 <= (log_time - release_time).total_seconds() <= 1800
+        for release_time in release_times for log_time in log_times
+    )
+    if (snapshot.get('suspected_recent_change') or temporal_match) and release_ids:
         hypothesis('release_correlation','هم‌زمانی احتمالی خطا با انتشار اخیر', 'پایین', 'زمان‌بندی انتشار و اختلال ظاهراً نزدیک است؛ هم‌زمانی به‌تنهایی علت را اثبات نمی‌کند.',release_ids + log_ids,'manual_rollback')
     if not hypotheses:
         hypothesis('insufficient','شاهد کافی برای تشخیص قطعی وجود ندارد', 'نامشخص', 'شواهد فعلی برای نتیجه‌گیری کافی نیست. برای رفع ابهام باید داده بیشتری جمع‌آوری شود.',status_ids,'investigate')
