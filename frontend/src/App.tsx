@@ -16,10 +16,18 @@ function Report({data, onApproval, resolved}:{data:any;onApproval:(proposal:any,
   const [showEvidence,setShowEvidence] = useState(false);
   const [confirmation,setConfirmation] = useState('');
   const [busy,setBusy] = useState(false);
+  const [clock,setClock] = useState(()=>Date.now()/1000);
   const report = data.report || {};
   const proposal = report.proposals?.[0];
+  useEffect(()=>{
+    if(!proposal) return;
+    const id=window.setInterval(()=>setClock(Date.now()/1000),1000);
+    return ()=>window.clearInterval(id);
+  },[proposal?.proposal_id]);
+  const remaining = proposal?.expires_at ? Math.max(0,Math.ceil(proposal.expires_at-clock)) : 180;
+  const expired = Boolean(proposal?.expires_at && remaining===0);
   async function act(approved:boolean) {
-    if (approved && confirmation !== report.project) return;
+    if (approved && (confirmation !== report.project || expired)) return;
     setBusy(true);
     try { await onApproval(proposal,approved,confirmation); }
     finally { setBusy(false); }
@@ -40,11 +48,11 @@ function Report({data, onApproval, resolved}:{data:any;onApproval:(proposal:any,
     {proposal && !resolved && <div className="approval">
       <div className="cardhead"><strong><ShieldCheck size={17}/> تأیید عملیات حساس</strong><span className="tag warning">ریسک: {proposal.risk}</span></div>
       <p><b>{proposal.title}</b> · {proposal.reason}</p>
-      <p>{proposal.impact}</p><small>مجوز سه دقیقه اعتبار دارد و فقط یک بار برای همین سرویس قابل استفاده است.</small>
+      <p>{proposal.impact}</p><small aria-live="polite">{expired?'مهلت تأیید پایان یافته است. برای اقدام باید سرویس را مجدداً بررسی کنید.':`مهلت تقریبی: ${remaining} ثانیه؛ کنترل نهایی اعتبار در سرور انجام می‌شود.`}</small>
       <label>برای تأیید، نام سرویس را دقیق وارد کنید <b dir="ltr">{report.project}</b>
         <input value={confirmation} onChange={e=>setConfirmation(e.target.value)} placeholder="نام سرویس" dir="ltr" autoComplete="off" />
       </label>
-      <div className="actions"><button className="primary" disabled={busy||confirmation!==report.project} onClick={()=>act(true)}>{busy?'در حال ثبت…':'تأیید و اجرا'}</button><button className="secondary" disabled={busy} onClick={()=>act(false)}>لغو</button></div>
+      <div className="actions"><button className="primary" disabled={busy||expired||confirmation!==report.project} onClick={()=>act(true)}>{busy?'در حال ثبت…':'تأیید و اجرا'}</button><button className="secondary" disabled={busy} onClick={()=>act(false)}>لغو</button></div>
     </div>}
   </div>;
 }
