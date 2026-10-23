@@ -21,7 +21,7 @@ const intentNames:Record<string,string> = {
 const uid = () => crypto.randomUUID();
 // The browser must not echo accidentally pasted credentials in the message list.
 function safeDisplayText(value:string):string {
-  const sensitive = /(?:\b(?:liara_api_token|sentinel_access_key|openai_api_key|api[_-]?key|secret[_-]?key|password|authorization)\s*[:=]\s*[^\s,;]{8,}|\bBearer\s+[A-Za-z0-9._\/+\-=]{12,}|\bsk-[A-Za-z0-9_-]{16,}|\bgh[pousr]_[A-Za-z0-9_]{16,})/i;
+  const sensitive = /(?:\b(?:liara_api_token|sentinel_access_key|openai_api_key|api[_-]?key|secret[_-]?key|password|authorization|database_url|redis_url|postgres_url|mysql_url|mongodb_uri|private_key|aws_secret_access_key|github_token|access_token)\s*[:=]\s*[^\s,;]{8,}|\bBearer\s+[A-Za-z0-9._\/+\-=]{12,}|\bsk-[A-Za-z0-9_-]{16,}|\bgh[pousr]_[A-Za-z0-9_]{16,}|\b(?:postgres(?:ql)?|mysql|redis|mongodb(?:\+srv)?):\/\/[^\s]+|-----BEGIN (?:[A-Z ]+ )?PRIVATE KEY-----)/i;
   return sensitive.test(value) ? 'متن شامل اطلاعات محرمانه بود و برای حفاظت نمایش داده نمی‌شود.' : value;
 }
 function parseError(response: Response, data: any) {
