@@ -92,6 +92,7 @@ function DeployCard({data,token,activeProject,mode,onProject,serverReadOnly}:{da
   const [scan,setScan] = useState<any>(data.scout || null);
   const [assessment,setAssessment] = useState<any>(null);
   const [traffic,setTraffic] = useState('unknown');
+  const [workload,setWorkload] = useState('unknown');
   const [needsDatabase,setNeedsDatabase] = useState<boolean|null>(null);
   const [customDomain,setCustomDomain] = useState(false);
   const [uptimeCritical,setUptimeCritical] = useState(false);
@@ -117,6 +118,12 @@ function DeployCard({data,token,activeProject,mode,onProject,serverReadOnly}:{da
       <strong><FileSearch size={16}/> گام اول · نیازسنجی و انتخاب مسیر مناسب</strong>
       <p>فناوری پروژه را از فایل‌های واقعی بررسی می‌کنم. قیمت و شناسه پلن فقط از اطلاعات تأییدشده حساب قابل تعیین است.</p>
       <div className="formgrid">
+        <label>نوع اجرای برنامه<select value={workload} onChange={e=>{setWorkload(e.target.value);setAssessment(null);setPlan(null);}}>
+          <option value="unknown">هنوز نمی‌دانم</option>
+          <option value="web">وب‌سایت یا API</option>
+          <option value="static">سایت ایستا</option>
+          <option value="worker">کار پس‌زمینه (Worker)</option>
+        </select></label>
         <label>ترافیک مورد انتظار<select value={traffic} onChange={e=>{setTraffic(e.target.value);setAssessment(null);}}>
           <option value="unknown">هنوز نمی‌دانم</option><option value="low">آزمایشی یا کم</option>
           <option value="medium">متوسط</option><option value="high">زیاد یا نامطمئن</option>
@@ -134,7 +141,7 @@ function DeployCard({data,token,activeProject,mode,onProject,serverReadOnly}:{da
       <button className="secondary" disabled={busy|| (mode==='live'&&!token)} onClick={()=>run(
         ()=>api('/api/onboarding/assess',{
           mode:mode==='demo'?'demo':'live',path:mode==='demo'?null:path,
-          traffic,workload:'web',needs_database:needsDatabase,
+          traffic,workload,needs_database:needsDatabase,
           custom_domain:customDomain,uptime_critical:uptimeCritical,
           existing_app:backend!=='api',port:Number(port)
         }),
