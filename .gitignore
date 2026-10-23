@@ -36,3 +36,11 @@ audit.jsonl
 frontend/dist/
 frontend/node_modules/
 frontend/.vite/
+
+# Private VPS staging credentials and backups (templates only are committed)
+deploy/server/app.env
+deploy/server/caddy.env
+backups/
+*.tar.gz
+*.sqlite3.graph
+*.sqlite3.graph-*
