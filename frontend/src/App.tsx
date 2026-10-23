@@ -78,6 +78,7 @@ function DeployCard({data,token,activeProject,mode,onProject,serverReadOnly}:{da
   const [scan,setScan] = useState<any>(data.scout || null);
   const [confirmation,setConfirmation] = useState('');
   const [result,setResult] = useState<any>(null);
+  const [executeAttempted,setExecuteAttempted] = useState(false);
   const [verification,setVerification] = useState<any>(null);
   const [error,setError] = useState('');
   const [busy,setBusy] = useState(false);
@@ -103,16 +104,17 @@ function DeployCard({data,token,activeProject,mode,onProject,serverReadOnly}:{da
     </div>
     <div className="actions">
       <button className="secondary" disabled={busy||mode!=='live'||!token} onClick={()=>run(()=>api('/api/scout',{path}),x=>setScan(x.analysis))}>تحلیل سورس</button>
-      <button className="primary" disabled={busy||serverReadOnly||mode!=='live'||!token||!project||!path} onClick={()=>run(()=>api('/api/deploy/plan',{backend,project,path,platform,port:Number(port),plan_id:backend==='api'?planId:'existing'}),x=>{setPlan(x);setConfirmation('');onProject(x.project);})}>پیش‌نمایش انتشار</button>
+      <button className="primary" disabled={busy||serverReadOnly||mode!=='live'||!token||!project||!path||(backend==='api'&&!planId)||!Number.isInteger(Number(port))||Number(port)<1||Number(port)>65535} onClick={()=>run(()=>api('/api/deploy/plan',{backend,project,path,platform,port:Number(port),plan_id:backend==='api'?planId:'existing'}),x=>{setPlan(x);setConfirmation('');setExecuteAttempted(false);setResult(null);setVerification(null);onProject(x.project);})}>پیش‌نمایش انتشار</button>
     </div>
     {mode==='demo' && <div className="caution">این نمونه شبیه‌سازی است. عملیات انتشار واقعی فقط با اتصال امن و مجوز سمت سرور فعال می‌شود.</div>}
     {plan && <div className="approval"><strong>پیش‌نمایش عملیات واقعی</strong>
       <p>پروژه: <span dir="ltr">{plan.project}</span> · پلتفرم: {plan.platform} · پورت: {plan.port}</p>
       <p>شناسه پلن: {plan.plan_id||'برنامه موجود'} · قیمت: تأییدنشده</p>
-      <p>{plan.warning}</p><small>اثر بر سرویس موجود و هزینه احتمالی را پیش از تأیید بررسی کنید.</small>
+      <p>{plan.warning}</p><small>اثر بر سرویس موجود و هزینه احتمالی را پیش از تأیید بررسی کنید. مجوز انتشار حداکثر ۳ دقیقه اعتبار دارد.</small>
       <label>برای تأیید، نام پروژه را وارد کنید<input dir="ltr" value={confirmation} onChange={e=>setConfirmation(e.target.value)} /></label>
-      <button className="primary" disabled={busy||confirmation!==plan.project} onClick={()=>run(()=>api('/api/deploy/execute',{proposal_id:plan.proposal_id,confirm_project:plan.project}),setResult)}>تأیید و ارسال انتشار</button>
+      <button className="primary" disabled={busy||executeAttempted||confirmation!==plan.project} onClick={()=>{setExecuteAttempted(true);void run(()=>api('/api/deploy/execute',{proposal_id:plan.proposal_id,confirm_project:plan.project}),setResult);}}>{executeAttempted?'درخواست یک بار ارسال شده':'تأیید و ارسال انتشار'}</button>
     </div>}
+    {executeAttempted&&!result&&<div className="caution">یک تلاش برای اجرای این مجوز ثبت شد. حتی اگر پاسخ خطا بود، ممکن است عملیاتی در سرویس آغاز شده باشد؛ برای جلوگیری از اجرای تکراری، ابتدا وضعیت پروژه را در لیارا بررسی کنید و سپس پیش‌نمایش تازه بگیرید.</div>}
     {result && <div className="finding"><b>نتیجه ارسال:</b> {JSON.stringify(result)}<p>ارسال انتشار به معنی سلامت تأییدشده نیست.</p>
       <button className="secondary" disabled={busy} onClick={()=>run(async()=>{const r=await fetch('/api/deploy/status/'+encodeURIComponent(project),{headers:{'X-Sentinel-Access-Key':token}});const v=await r.json();if(!r.ok)throw parseError(r,v);return v;},setVerification)}>بررسی مستقل وضعیت انتشار</button>
     </div>}
