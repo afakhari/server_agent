@@ -12,7 +12,7 @@ function parseError(response: Response, data: any) {
   return new Error(typeof data?.detail === 'string' ? data.detail : 'خطای ارتباط با سرویس (' + response.status + ')');
 }
 
-function Report({data, onApproval}:{data:any;onApproval:(proposal:any,approved:boolean,confirm:string)=>Promise<void>}) {
+function Report({data, onApproval, resolved}:{data:any;onApproval:(proposal:any,approved:boolean,confirm:string)=>Promise<void>;resolved:boolean}) {
   const [showEvidence,setShowEvidence] = useState(false);
   const [confirmation,setConfirmation] = useState('');
   const [busy,setBusy] = useState(false);
@@ -36,7 +36,8 @@ function Report({data, onApproval}:{data:any;onApproval:(proposal:any,approved:b
     <button className="plainbtn" onClick={()=>setShowEvidence(v=>!v)} aria-expanded={showEvidence}><List size={15}/> {showEvidence?'بستن شواهد':'مشاهده شواهد و منابع'} <ChevronDown size={14}/></button>
     {showEvidence && <div className="evidencelist">{(report.evidence||[]).map((ev:any)=><div className="evidence" key={ev.id}><strong dir="ltr">{ev.id}</strong> · {ev.text}<small dir="ltr">{ev.source}</small></div>)}</div>}
     {(report.limitations||[]).length > 0 && <div className="caution">{report.limitations.join(' • ')}</div>}
-    {proposal && <div className="approval">
+    {proposal && resolved && <div className="finding"><CheckCircle2 size={15}/> تصمیم این پیشنهاد قبلاً در گفت‌وگو ثبت شده است.</div>}
+    {proposal && !resolved && <div className="approval">
       <div className="cardhead"><strong><ShieldCheck size={17}/> تأیید عملیات حساس</strong><span className="tag warning">ریسک: {proposal.risk}</span></div>
       <p><b>{proposal.title}</b> · {proposal.reason}</p>
       <p>{proposal.impact}</p><small>مجوز سه دقیقه اعتبار دارد و فقط یک بار برای همین سرویس قابل استفاده است.</small>
@@ -47,7 +48,7 @@ function Report({data, onApproval}:{data:any;onApproval:(proposal:any,approved:b
     </div>}
   </div>;
 }
-function DeployCard({data,token,activeProject,mode}:{data:UIPayload;token:string;activeProject:string;mode:string}) {
+function DeployCard({data,token,activeProject,mode,onProject}:{data:UIPayload;token:string;activeProject:string;mode:string;onProject:(p:string)=>void}) {
   const [path,setPath] = useState('fastapi-shop');
   const [project,setProject] = useState(data.project === 'demo-shop' ? '' : (data.project || activeProject || ''));
   const [platform,setPlatform] = useState(data.scout?.platform || 'python');
@@ -82,7 +83,7 @@ function DeployCard({data,token,activeProject,mode}:{data:UIPayload;token:string
     </div>
     <div className="actions">
       <button className="secondary" disabled={busy||mode!=='live'||!token} onClick={()=>run(()=>api('/api/scout',{path}),x=>setScan(x.analysis))}>تحلیل سورس</button>
-      <button className="primary" disabled={busy||mode!=='live'||!token||!project||!path} onClick={()=>run(()=>api('/api/deploy/plan',{backend,project,path,platform,port:Number(port),plan_id:backend==='api'?planId:'existing'}),x=>{setPlan(x);setConfirmation('');})}>پیش‌نمایش انتشار</button>
+      <button className="primary" disabled={busy||mode!=='live'||!token||!project||!path} onClick={()=>run(()=>api('/api/deploy/plan',{backend,project,path,platform,port:Number(port),plan_id:backend==='api'?planId:'existing'}),x=>{setPlan(x);setConfirmation('');onProject(x.project);})}>پیش‌نمایش انتشار</button>
     </div>
     {mode==='demo' && <div className="caution">این نمونه شبیه‌سازی است. عملیات انتشار واقعی فقط با اتصال امن و مجوز سمت سرور فعال می‌شود.</div>}
     {plan && <div className="approval"><strong>پیش‌نمایش عملیات واقعی</strong>
@@ -99,12 +100,12 @@ function DeployCard({data,token,activeProject,mode}:{data:UIPayload;token:string
     {error && <div role="alert" className="caution">{error}</div>}
   </div>;
 }
-function ToolCard({ui,onApproval,onProject,token,project,mode}:{ui?:UIPayload;onApproval:(p:any,a:boolean,c:string)=>Promise<void>;onProject:(p:string)=>void;token:string;project:string;mode:string}) {
+function ToolCard({ui,onApproval,onProject,token,project,mode,resolved}:{ui?:UIPayload;onApproval:(p:any,a:boolean,c:string)=>Promise<void>;onProject:(p:string)=>void;token:string;project:string;mode:string;resolved:boolean}) {
   const [listing,setListing] = useState<any[]>([]);
   const [error,setError] = useState('');
   if (!ui?.type) return null;
-  if (ui.type==='inspection') return <Report data={ui} onApproval={onApproval}/>;
-  if (ui.type==='deploy') return <DeployCard data={ui} token={token} activeProject={project} mode={mode}/>;
+  if (ui.type==='inspection') return <Report data={ui} onApproval={onApproval} resolved={resolved}/>;
+  if (ui.type==='deploy') return <DeployCard data={ui} token={token} activeProject={project} mode={mode} onProject={onProject}/>;
   if (ui.type==='execution') return <div className="toolcard"><div className="cardhead"><strong><ClipboardCheck size={17}/> نتیجه عملیات</strong></div>
     <p>ارسال: {ui.result?.execution||'نامشخص'}</p><p>راستی‌آزمایی: {ui.result?.verification||'نامشخص'}</p>
     <p>{ui.result?.message||'اطلاعات بیشتری موجود نیست.'}</p></div>;
@@ -223,7 +224,8 @@ export default function App() {
                 {({message})=>message.role==='user'?
                   <MessagePrimitive.Root className="userrow"><div className="userbubble"><MessagePrimitive.Parts/></div></MessagePrimitive.Root>:
                   <MessagePrimitive.Root className="assistantrow"><div className="assistantavatar"><Activity size={17}/></div><div className="assistantbody"><div className="assistanttext"><MessagePrimitive.Parts/></div>
-                    <ToolCard ui={messages.find(m=>m.id===message.id)?.ui} onApproval={approval} onProject={onProject} token={token} project={project} mode={mode}/>
+                    <ToolCard ui={messages.find(m=>m.id===message.id)?.ui} onApproval={approval} onProject={onProject} token={token} project={project} mode={mode}
+                      resolved={messages.slice(messages.findIndex(m=>m.id===message.id)+1).some(m=>m.ui?.type==='execution'||m.ui?.type==='notice')}/>
                   </div></MessagePrimitive.Root>}
               </ThreadPrimitive.Messages>
               {running&&<div className="statusline" aria-live="polite"><LoaderCircle size={16} className="spin"/>{status}</div>}
