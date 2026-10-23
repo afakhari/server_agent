@@ -51,3 +51,8 @@ GitHub Actions workflow در PR #26 ایجاد شد. اجرای اولیه در 
 - `private-server` profile، startup fail-closed برای secret، DB، LangGraph و frontend build، و deny نوشتن Liara افزوده شد.
 - تست‌های جدید `tests/test_server_deployment.py` نوشته شده‌اند ولی در این نشست اجرای واقعی گزارش نشده است.
 - وضعیت عملیاتی سرور **NOT DEPLOYED** و وضعیت انتشار **NO-GO** تا اثبات build، QA، و آزمون HTTPS واقعی باقی می‌ماند.
+
+ 
+### Intent-first UX افزوده شد، تأیید اجرا باقی است
+
+`sentinel/intent.py` طبقه‌بندی چندبرچسبی و abstain/clarify، `sentinel/discovery.py` خوشه‌بندی آفلاین فقط روی نمونه‌های رضایت‌داده‌شده، `scripts/review_intents.py` ابزار تحلیل آفلاین، `tests/test_intent_experience.py` Golden testهای پیام‌های رایج و خطرناک، و کارت‌های راهنمای دامنه و release در رابط React اضافه شده‌اند. API همچنان read-only default و approval-bound است. **هیچ اجرای موفق جدید برای pytest / frontend build ثبت نشده است.**
