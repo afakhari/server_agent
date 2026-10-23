@@ -168,6 +168,41 @@ def fail_from_approval(exc):
                TimeoutError: 410, ValueError: 409}
     return HTTPException(mapping.get(type(exc), 400), str(exc))
 
+
+def actor_candidates(request: Request) -> list[tuple[str, str]]:
+    """Return only principals authenticated by the same supplied access key.
+
+    Team selection changes the live principal, but not demo conversation scope.
+    The candidate list never overrides the stored mode of a proposal/thread.
+    """
+    supplied = request.headers.get('X-Sentinel-Access-Key')
+    candidates = []
+    for mode in ('demo', 'live'):
+        try:
+            actor = actor_digest(supplied, mode)
+        except PermissionError:
+            continue
+        candidates.append((mode, actor))
+    if not candidates:
+        raise PermissionError('کلید دسترسی Sentinel معتبر نیست.')
+    return candidates
+
+
+def resolve_approval_actor(request: Request, proposal_id: str, project: str):
+    """Resolve proposal by authenticated principal and its original mode."""
+    last_error = None
+    for mode, actor in actor_candidates(request):
+        try:
+            proposal = inspect_approval(proposal_id, actor, project)
+        except PermissionError as exc:
+            last_error = exc
+            continue
+        if proposal['mode'] == mode:
+            return actor, proposal
+        # When demo/live hashes coincide, the second candidate may be the
+        # exact mode; never authorize by hash match alone.
+    raise last_error or PermissionError('مجوز متعلق به حساب یا حالت جاری نیست.')
+
 @app.get('/healthz', include_in_schema=False)
 def healthz():
     """Internal liveness probe: no credentials, token checks or upstream calls."""
@@ -232,11 +267,12 @@ def inspect(request: Request, payload: InspectRequest):
 
 @app.post('/api/approve')
 def approve(request: Request, payload: ApproveRequest):
-    # No trusting client-supplied action, mode, target, plan or state.
+    # Derive both potential principals, then authorize using the proposal's
+    # OWN recorded mode. Demo and live actor hashes diverge in team accounts.
+    # Never infer proposal mode from the mere presence of a server access key.
     try:
-        actor = actor_digest(request.headers.get('X-Sentinel-Access-Key'), 'live'
-                             if os.getenv('SENTINEL_ACCESS_KEY') else 'demo')
-        proposal = inspect_approval(payload.proposal_id, actor, payload.confirm_project)
+        actor, proposal = resolve_approval_actor(
+            request, payload.proposal_id, payload.confirm_project)
     except (PermissionError, LookupError, RuntimeError, TimeoutError, ValueError) as exc:
         raise fail_from_approval(exc) from exc
     mode, project = proposal['mode'], proposal['project']
@@ -469,26 +505,46 @@ def chat_stream(request: Request, payload: ChatMessageRequest):
                              headers={'X-Accel-Buffering': 'no', 'Cache-Control': 'no-store'})
 
 
+def authorized_chat_thread(request: Request, thread_id: str):
+    """Authorize per stored chat mode, including team-scoped live actors."""
+    for mode, actor in actor_candidates(request):
+        try:
+            thread = chat_service.thread_data(actor, thread_id)
+        except PermissionError:
+            continue
+        if thread['mode'] == mode:
+            return actor, thread
+    raise PermissionError('گفت‌وگو در حساب و محیط جاری در دسترس نیست.')
+
+
 @app.get('/api/chat/threads')
 def chat_threads(request: Request):
-    actor = credentials(request, 'live' if os.getenv('SENTINEL_ACCESS_KEY') else 'demo')
-    return {'threads': chat_service.list_threads(actor)}
+    try:
+        principals = actor_candidates(request)
+        combined = {}
+        for mode, actor in principals:
+            for thread in chat_service.list_threads(actor):
+                if thread['mode'] == mode:
+                    combined[thread['id']] = thread
+        result = sorted(combined.values(), key=lambda t: t['updated_at'],
+                        reverse=True)[:40]
+        return {'threads': result}
+    except PermissionError as exc:
+        raise HTTPException(403, str(exc)) from exc
 
 
 @app.get('/api/chat/threads/{thread_id}')
 def chat_thread(request: Request, thread_id: str):
-    actor = credentials(request, 'live' if os.getenv('SENTINEL_ACCESS_KEY') else 'demo')
     try:
-        return chat_service.thread_data(actor, thread_id)
+        return authorized_chat_thread(request, thread_id)[1]
     except PermissionError as exc:
         raise HTTPException(403, str(exc)) from exc
 
 
 @app.post('/api/chat/approval')
 def chat_approval(request: Request, payload: ChatApprovalRequest):
-    actor = credentials(request, 'live' if os.getenv('SENTINEL_ACCESS_KEY') else 'demo')
     try:
-        thread = chat_service.thread_data(actor, payload.thread_id)
+        actor, thread = authorized_chat_thread(request, payload.thread_id)
         # Proposal must belong to this exact thread; the model cannot invent approvals.
         # Only the latest assistant decision can be approved. If the user has
         # changed topic or received another answer, old cards cannot be used.
@@ -503,6 +559,11 @@ def chat_approval(request: Request, payload: ChatApprovalRequest):
         )
         if not valid:
             raise PermissionError('این عملیات متعلق به گفت‌وگوی جاری نیست.')
+        # Enforce the proposal's original mode, not just a matching project
+        # or shared access key, before any restart can be submitted.
+        stored = inspect_approval(payload.proposal_id, actor, payload.confirm_project)
+        if stored['mode'] != thread['mode']:
+            raise PermissionError('حالت مجوز با گفت‌وگو مطابقت ندارد')
         if payload.approved:
             execution = approve(request, ApproveRequest(
                 proposal_id=payload.proposal_id, confirm_project=payload.confirm_project))
