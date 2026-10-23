@@ -154,4 +154,9 @@ class LiaraClient:
             except LiaraError as exc:
                 result['limitations'].append(f'{key}: {exc}')
         # Never pretend API raw values are percentages without validated plan limits.
+        if result.get('raw_metrics'):
+            result['metric_origin'] = 'Liara API raw metrics; units not verified'
+            result['limitations'].append(
+                'واحد CPU/RAM و نسبت مصرف به ظرفیت پلن از API فعلی تأیید نشده است؛ مقدار خام را درصد فرض نکنید.'
+            )
         return result
