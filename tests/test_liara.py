@@ -53,3 +53,19 @@ def test_malformed_response_rejected():
     with LiaraClient(token='fake', transport=httpx.MockTransport(lambda _: httpx.Response(200, json={'wrong': []}))) as c:
         with pytest.raises(LiaraError):
             c.list_projects()
+
+
+def test_domain_read_is_redacted_and_scoped():
+    import httpx
+    from sentinel.liara import LiaraClient
+    def handler(request):
+        assert request.url.params.get('project') == 'test-shop'
+        return httpx.Response(200, json={'domains':[{
+            '_id':'abc12345678', 'name':'shop.example.com',
+            'status':'active', 'certificatesStatus':'ready',
+            'CNameRecord':'target.example.com', 'verificationCode':'PRIVATE'
+        }]})
+    with LiaraClient(token='example', transport=httpx.MockTransport(handler)) as client:
+        result=client.domains('test-shop')
+    assert result['domains'][0]['name']=='shop.example.com'
+    assert 'PRIVATE' not in repr(result)

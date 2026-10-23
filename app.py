@@ -227,3 +227,59 @@ def deploy_execute(request: Request, payload: DeployExecuteRequest):
     except (DeployError, ValueError, LiaraError) as exc:
         audit('deployment_failed_or_unknown', 'live', payload.confirm_project)
         raise HTTPException(502, str(exc)) from exc
+
+
+@app.get('/api/domains/{project}')
+def list_domains(request: Request, project: str):
+    """Read-only domain and certificate statuses. Never changes DNS."""
+    credentials(request, 'live')
+    try:
+        with LiaraClient() as client:
+            return client.domains(validate_name(project))
+    except LiaraError as exc:
+        raise HTTPException(502, str(exc)) from exc
+
+
+@app.get('/api/domains/check/{domain_id}')
+def inspect_domain(request: Request, domain_id: str):
+    credentials(request, 'live')
+    try:
+        with LiaraClient() as client:
+            return client.check_domain(domain_id)
+    except LiaraError as exc:
+        raise HTTPException(502, str(exc)) from exc
+
+
+@app.get('/api/deploy/status/{project}')
+def deployment_status(request: Request, project: str):
+    """Follow up deployment without equating release submission with success."""
+    credentials(request, 'live')
+    project = validate_name(project)
+    try:
+        with LiaraClient() as client:
+            releases = client.releases(project)
+            details = client.get_project(project)
+    except LiaraError as exc:
+        raise HTTPException(502, str(exc)) from exc
+    history = []
+    for item in (releases.get('releases') or [])[:10]:
+        if not isinstance(item, dict):
+            continue
+        history.append({key: item[key] for key in
+                        ('_id', 'tag', 'state', 'createdAt', 'finishedAt')
+                        if key in item})
+    # An optional HTTPS health probe belongs to a server-configured, owned URL.
+    observed = verify_http(project)
+    if observed['status'] == 'FAILED':
+        judgment = 'OBSERVED_UNHEALTHY'
+    elif observed['status'] == 'HEALTHY_NOW' and details.get('isDeployed') is True:
+        judgment = 'OBSERVED_HEALTHY_ONCE'
+    else:
+        judgment = 'INCONCLUSIVE'
+    return {
+        'project': project, 'currentRelease': releases.get('currentRelease'),
+        'isDeployed': details.get('isDeployed'),
+        'app_status': details.get('status'), 'recent_releases': history,
+        'health_observation': observed, 'judgment': judgment,
+        'note': 'یک HTTP 200 یا وضعیت آماده نسخه، به‌تنهایی اثبات بازیابی پایدار نیست.'
+    }

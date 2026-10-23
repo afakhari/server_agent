@@ -12,6 +12,7 @@
 <section class="section panel hidden" id="operation"><div class="sectionheader"><h2>مداخله پیشنهادی</h2><span class="chip amber">نیازمند تأیید انسانی</span></div><div id="actionInfo"></div><div class="approval"><strong>تأیید مخصوص همین عملیات</strong><div class="muted">برای تأیید، نام پروژه را دقیقاً وارد کنید. مجوز سه دقیقه اعتبار دارد و فقط یک‌بار قابل استفاده است.</div><input id="confirmProject" autocomplete="off" placeholder="نام دقیق پروژه"><button id="approve" class="action primary" style="margin-top:12px">تأیید و اجرای عملیات</button></div><div id="result" style="margin-top:16px"></div></section>
 <section class="section panel" id="scout"><div class="sectionheader"><h2>Project Scout · بررسی آمادگی استقرار</h2><span class="chip">Read-only</span></div><p class="muted">بدون اجرای کد ناشناس، از روی فایل‌های تنظیمات، نوع پروژه، پورت و نام متغیرهای موردنیاز شناسایی می‌شود. برای مشاهده نمونه FastAPI، گزارش را باز کنید.</p><button class="action secondary" id="scan">تحلیل پروژه نمونه</button><div id="scanResult" style="margin-top:14px"></div></section>
 <section class="section panel" id="deployWizard"><div class="sectionheader"><h2>استقرار هدایت‌شده · آزمایشگاه لیارا</h2><span class="chip amber">فقط پروژه آزمایشی مجاز</span></div><p class="muted">ابتدا تحلیل سورس و شناسه پلن را بررسی کنید. ساخت پروژه و انتشار هزینه‌زا است و فقط با تأیید صریح اجرا می‌شود. قیمت پلن در این نسخه اعتبارسنجی نشده است.</p><div class="controls"><label class="field">مسیر نسبی در فضای کاری مجاز<input id="deployPath" value="sample" placeholder="sample"></label><label class="field">نام پروژه آزمایشی<input id="deployProject" placeholder="my-test-app"></label><label class="field">شناسه پلن تأییدشده<input id="deployPlan" placeholder="plan-id"></label><label class="field">پلتفرم<select id="deployPlatform"><option value="python">Python</option><option value="node">Node</option><option value="php">PHP</option><option value="docker">Docker</option></select></label><label class="field">پورت<input id="deployPort" value="8000" inputmode="numeric"></label></div><div class="btnrow"><button class="action secondary" id="planDeploy">پیش‌نمایش انتشار</button></div><div id="deployPreview" class="hidden" style="margin-top:18px"></div></section>
+<section class="section panel" id="lifecycle"><div class="sectionheader"><h2>دامنه، SSL و وضعیت انتشار</h2><span class="chip">Liara API · فقط خواندن</span></div><p class="muted">وضعیت واقعی دامنه و گواهی و انتشارها را بررسی می‌کند. رکورد DNS را فقط نمایش می‌دهد؛ تغییر در پنل ثبت‌کننده دامنه بر عهده کاربر است.</p><div class="btnrow"><button class="action secondary" id="domainStatus">نمایش دامنه‌های پروژه</button><button class="action secondary" id="releaseStatus">بررسی نتیجه انتشار</button></div><div id="lifecycleResult" class="notice" style="margin-top:14px">برای مشاهده داده‌های واقعی ابتدا حالت Live و شناسه پروژه را انتخاب کنید.</div></section>
 <footer class="footer">Prototype v0.2 · منطق تشخیص پیش‌فرض مبتنی بر قواعد قابل‌توضیح است. این نسخه جایگزین سیستم‌های پایش و بازیابی تولیدی نیست.</footer></main>
 <script>
 const el=id=>document.getElementById(id); let current=null;
@@ -29,4 +30,30 @@ el('scan').onclick=async()=>{try{const x=await api('/api/scout/demo');const a=x.
 let deployProposal=null;
 el('planDeploy').onclick=async()=>{if(!accessKey)accessKey=prompt('کلید دسترسی Sentinel (نه توکن لیارا)')||'';try{const x=await api('/api/deploy/plan',{method:'POST',body:JSON.stringify({project:el('deployProject').value,path:el('deployPath').value,plan_id:el('deployPlan').value,platform:el('deployPlatform').value,port:Number(el('deployPort').value)})});deployProposal=x;el('deployPreview').classList.remove('hidden');el('deployPreview').innerHTML=`<div class="approval"><h3>پیش‌نمایش تغییر حساس</h3><p>پروژه: <b>${esc(x.project)}</b> | پلتفرم: ${esc(x.platform)} | پورت: ${esc(x.port)}</p><p>شناسه پلن: ${esc(x.plan_id)}؛ قیمت: تأییدنشده</p><p>اثر احتمالی: ایجاد پروژه، هزینه و انتشار سرویس</p><p>SHA256 سورس: <span dir="ltr">${esc(x.source_sha256)}</span></p><p>فایل‌های بسته: ${esc(x.included_files.join('، '))}</p><p>${esc(x.warning)}</p><label class="field">برای تأیید، نام پروژه را دوباره وارد کنید<input id="confirmDeploy" autocomplete="off"></label><button class="action primary" id="executeDeploy" style="margin-top:10px">تأیید و ارسال واقعی (فقط آزمایش)</button><div id="deployResult"></div></div>`;el('executeDeploy').onclick=async()=>{if(el('confirmDeploy').value!==deployProposal.project){el('deployResult').textContent='نام پروژه تأیید نشده است';return;}el('executeDeploy').disabled=true;try{const r=await api('/api/deploy/execute',{method:'POST',body:JSON.stringify({proposal_id:deployProposal.proposal_id,confirm_project:deployProposal.project})});el('deployResult').textContent=JSON.stringify(r,null,2);}catch(e){el('deployResult').textContent=e.message;}};}catch(e){alert(e.message)}};
 el('audit').onclick=async()=>{try{const r=await api('/api/audit');alert(r.events.slice(-8).map(e=>`${e.at}\n${e.event} | ${e.project||''}`).join('\n\n')||'عملیاتی ثبت نشده')}catch(err){alert(err.message)}};
+
+el('domainStatus').onclick=async()=>{
+ if(!accessKey) accessKey=prompt('کلید دسترسی Sentinel (نه توکن لیارا)')||'';
+ const project=el('project').value.trim();
+ try{
+  const r=await api('/api/domains/'+encodeURIComponent(project));
+  const items=r.domains||[];
+  el('lifecycleResult').innerHTML=items.length?
+   items.map(d=>'<div class="hyp"><h3>'+esc(d.name)+'</h3><p>وضعیت: '+esc(d.status||'نامشخص')+' · گواهی SSL: '+esc(d.certificatesStatus||'نامشخص')+'</p><p>رکورد مقصد DNS: <span dir="ltr">'+esc(d.CNameRecord||'اعلام نشده')+'</span></p><p>شناسه دامنه: '+esc(d._id||'نامشخص')+'</p></div>').join('')
+   :'<p>در این پروژه دامنه‌ای ثبت نشده است؛ تغییر DNS بیرون از دسترسی این دستیار است.</p>';
+ }catch(e){el('lifecycleResult').textContent=e.message;}
+};
+el('releaseStatus').onclick=async()=>{
+ if(!accessKey) accessKey=prompt('کلید دسترسی Sentinel (نه توکن لیارا)')||'';
+ const project=el('project').value.trim();
+ try{
+  const r=await api('/api/deploy/status/'+encodeURIComponent(project));
+  const h=r.health_observation||{};
+  el('lifecycleResult').innerHTML=
+   '<div class="chips"><span class="chip">'+esc(r.judgment)+'</span><span class="chip">Release: '+esc(r.currentRelease||'نامشخص')+'</span></div>'+
+   '<p>وضعیت سرویس: '+esc(r.app_status||'نامشخص')+' · deployed: '+esc(r.isDeployed)+'</p>'+
+   '<p>مشاهده مستقل سلامت: '+esc(h.status||'INCONCLUSIVE')+' · '+esc(h.reason||'')+'</p>'+
+   '<p>'+esc(r.note)+'</p>'+
+   (r.recent_releases||[]).map(x=>'<div class="hyp">'+esc(x.tag||x._id||'?')+' · '+esc(x.state||'نامشخص')+' · '+esc(x.createdAt||'')+'</div>').join('');
+ }catch(e){el('lifecycleResult').textContent=e.message;}
+};
 </script></body></html>

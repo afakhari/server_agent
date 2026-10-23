@@ -64,3 +64,6 @@ Documentation review date: **2026-10-23**. Details must be revalidated against t
 
 ## Delivery policy for this development phase
 No automated GitHub CI runs by design. New focused offline checks are in tests/; run locally when preparing a release. Live Liara operations remain unverified. Canonical implementation is app.py + sentinel/ (not the superseded parallel experimental branch). See docs/16-implementation-status.md.
+
+### New read-only operations: domain + release status
+The UI has a 'دامنه، SSL و وضعیت انتشار' panel using read-only GET domain listing and release status. Deployment verification reports OBSERVED_HEALTHY_ONCE at most, never sustained recovery without continued observation. Requires configured server-side Liara credentials and operator key. Real-world responses must still be tested on a disposable account.
