@@ -60,3 +60,30 @@ def test_private_env_is_not_accidentally_archived(tmp_path):
     (folder / ".env.production").write_text("PASSWORD=real-secret\n")
     _, _, names = safe_tree(folder)
     assert names == ["app.py"]
+
+
+
+@pytest.mark.parametrize("record", [
+    b'{"environment":[{"key":"DATABASE_URL","value":"postgresql://private-server/testdb"}]}',
+    b'{"nested":{"apiKey":"REAL_SERVER_SECRET_012345678901"}}',
+    b'{"auth":{"refreshToken":"REAL_SESSION_VALUE_012345678901"}}',
+    b'{"resources":[{"key":"AWS_SECRET_ACCESS_KEY","value":"THIS_IS_A_REAL_SECRET_EXAMPLE_001"}]}',
+])
+def test_nested_json_secrets_block_archives(tmp_path, record):
+    folder = tmp_path / "nested"
+    folder.mkdir()
+    (folder / "main.py").write_text("print('safe')")
+    (folder / "config.json").write_bytes(record)
+    assert suspicious_source("config.json", record) is not None
+    with pytest.raises(DeployError):
+        safe_tree(folder)
+
+
+def test_liara_manifest_cannot_override_unreviewed_settings(tmp_path):
+    folder = tmp_path / "manifest"
+    folder.mkdir()
+    (folder / "main.py").write_text("print('safe')")
+    (folder / "liara.json").write_text(
+        '{"platform":"python","port":8000,"team":"untrusted-team"}')
+    with pytest.raises(DeployError, match="liara.json"):
+        safe_tree(folder)
