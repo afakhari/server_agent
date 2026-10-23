@@ -7,6 +7,17 @@ type UIPayload = { type?: string; [key: string]: any };
 type ChatItem = { id: string; role: 'user'|'assistant'; content: string; ui?: UIPayload; at: number };
 type Thread = { id: string; project?: string; mode: string; updated_at: number; title?: string };
 const examples = ['سایتم خطای ۵۰۰ می‌دهد', 'پروژه‌ام را روی لیارا منتشر کن', 'فهرست برنامه‌های حساب'];
+const intentNames:Record<string,string> = {
+  incident:'عیب‌یابی', restart:'بررسی پیش از راه‌اندازی مجدد', health:'سلامت سرویس',
+  deploy:'آماده‌سازی انتشار', projects:'فهرست برنامه‌ها', releases:'تاریخچه انتشار',
+  domains:'دامنه و SSL', billing:'هزینه و پلن', security:'امنیت و مجوز',
+  env:'تنظیمات محیطی', database:'راهنمای دیتابیس', backup:'پشتیبان‌گیری',
+  team:'حساب تیمی', support:'پشتیبانی', notifications:'هشدارها',
+  greeting:'شروع گفتگو', help:'راهنما', explain:'توضیح بدون اجرا',
+  cancellation:'لغو', confirmation:'درخواست تأیید', unknown:'نامشخص',
+  multi_intent:'چند درخواست مستقل', destructive:'عملیات غیرمجاز',
+  unsupported:'خارج از قابلیت موجود',
+};
 const uid = () => crypto.randomUUID();
 function parseError(response: Response, data: any) {
   return new Error(typeof data?.detail === 'string' ? data.detail : 'خطای ارتباط با سرویس (' + response.status + ')');
@@ -259,6 +270,10 @@ export default function App() {
                 {({message})=>message.role==='user'?
                   <MessagePrimitive.Root className="userrow"><div className="userbubble"><MessagePrimitive.Parts/></div></MessagePrimitive.Root>:
                   <MessagePrimitive.Root className="assistantrow"><div className="assistantavatar"><Activity size={17}/></div><div className="assistantbody"><div className="assistanttext"><MessagePrimitive.Parts/></div>
+                    {messages.find(m=>m.id===message.id)?.ui?.classification && <div className="interpretation" aria-label="برداشت سیستم از درخواست">
+                      <CircleAlert size={13}/> برداشت اولیه: {intentNames[messages.find(m=>m.id===message.id)?.ui?.classification?.intent]||'بررسی درخواست'}
+                      {messages.find(m=>m.id===message.id)?.ui?.classification?.certainty!=='clear'&&' · نیاز به انتخاب یا توضیح بیشتر'}
+                    </div>}
                     <ToolCard ui={messages.find(m=>m.id===message.id)?.ui} onApproval={approval} onProject={onProject} onAction={(prompt)=>void send(prompt)} token={token} project={project} mode={mode}
                       resolved={messages.slice(messages.findIndex(m=>m.id===message.id)+1).some(m=>m.ui?.type==='execution'||m.ui?.type==='notice')}/>
                   </div></MessagePrimitive.Root>}
