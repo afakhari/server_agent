@@ -89,3 +89,6 @@ Official docs: https://developers.liara.ir/ and https://github.com/liara-cloud/c
 
 ### Real, controlled test incident
 The bundled disposable FastAPI example now supports an **opt-in missing-env failure**: set `SENTINEL_REQUIRE_DEMO_FLAG=true` and leave `SENTINEL_DEMO_FLAG` unset to produce a real HTTP 500 and explicit stacktrace; setting `SENTINEL_DEMO_FLAG=ready` restores `/health`. This requires changes **only** on the disposable test app in Liara Console and is NOT an autonomous env fix. See [operator walkthrough](docs/18-operator-steps-fa.md).
+
+### Windows users: deploy to an existing Liara test app
+The guided deployment wizard now defaults to **API: publish to existing application**, so no extra app creation or CLI/WSL is required. Launch locally with `python scripts/run_local.py --mode test-api --project YOUR_DISPOSABLE_APP` only after understanding billable effects. Pick path `fastapi-shop`, platform Python, port 8000, and the exact allowlisted project ID. A preview and an exact one-use approval are mandatory. The request result is SUBMITTED, not independently VERIFIED.

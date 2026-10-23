@@ -90,6 +90,14 @@ def make_plan(actor: str, project: str, relative_path: str, plan_id: str, platfo
     if scan['port'] is not None and scan['port'] != port:
         raise DeployError('پورت با پیکربندی سورس مطابقت ندارد')
     _, digest, filenames = safe_tree(directory)
+    # A separate explicit mode is required for an already-created application.
+    if plan_id == 'existing':
+        with LiaraClient() as client:
+            current = client.get_project(project)
+        if current.get('type') != platform:
+            raise DeployError('پلتفرم پروژه موجود با سورس مطابقت ندارد')
+        if not current.get('project_id'):
+            raise DeployError('شناسه پروژه موجود از API تأیید نشده است')
     identifier = secrets.token_urlsafe(32)
     with session() as conn:
         proposal_conn(conn)
@@ -98,7 +106,9 @@ def make_plan(actor: str, project: str, relative_path: str, plan_id: str, platfo
     return {'proposal_id': identifier, 'project': project, 'platform': platform, 'port': port,
             'plan_id': plan_id, 'source_sha256': digest, 'included_files': filenames,
             'requires_approval': True, 'expires_in_seconds': 180,
-            'warning': 'شناسه پلن و هزینه آن باید در حساب لیارا تأیید شده باشد؛ این نسخه قیمت را نمی‌داند. ایجاد پروژه و انتشار می‌تواند هزینه ایجاد کند.'}
+            'warning': ('فقط انتشار روی پروژه موجود: پروژه جدید ساخته نمی‌شود؛ سورس برنامه ممکن است جایگزین شود و مصرف منابع هزینه داشته باشد.'
+                        if plan_id == 'existing' else
+                        'ایجاد برنامه جدید و انتشار ممکن است هزینه داشته باشد؛ شناسه و قیمت پلن باید در حساب لیارا تأیید شوند.')}
 
 
 def claim_plan(actor: str, identifier: str, project: str):
@@ -132,11 +142,19 @@ def claim_plan(actor: str, identifier: str, project: str):
 
 
 def perform_deploy(project: str, plan_id: str, platform: str, port: int, contents: bytes) -> dict:
-    """Create → upload → release. No blind retry after a potentially accepted POST."""
-    stage = 'create-project'
+    """Explicitly choose existing-app upload or new-app create, then release."""
+    stage = 'check-project'
     with LiaraClient() as client:
         try:
-            client.request('POST', '/v1/projects', json={'name': project, 'planID': plan_id, 'platform': platform})
+            if plan_id == 'existing':
+                current = client.get_project(project)
+                if not current.get('project_id') or current.get('type') != platform:
+                    raise DeployError('پلتفرم یا شناسه پروژه موجود معتبر نیست')
+            else:
+                # Creating a new app requires an independently approved plan ID.
+                stage = 'create-project'
+                client.request('POST', '/v1/projects', json={
+                    'name': project, 'planID': plan_id, 'platform': platform})
             stage = 'upload-source'
             result = client.http.post(f'/v2/projects/{project}/sources', files={'file': ('source.tar.gz', contents, 'application/gzip')})
             result.raise_for_status()
@@ -150,7 +168,9 @@ def perform_deploy(project: str, plan_id: str, platform: str, port: int, content
                 raise DeployError('انتشار شناسه releaseID معتبر برنگرداند')
             return {'execution': 'SUBMITTED', 'verification': 'NOT_VERIFIED',
                     'project': project, 'release_id': release['releaseID'],
-                    'message': 'پروژه و انتشار ارسال شدند؛ آماده‌بودن نسخه و پاسخ HTTP هنوز تأیید نشده‌اند.'}
+                    'message': ('درخواست انتشار روی پروژه موجود ارسال شد؛ آماده‌بودن نسخه و پاسخ HTTP باید جدا بررسی شوند.'
+                                if plan_id == 'existing' else
+                                'درخواست ایجاد پروژه و انتشار ارسال شد؛ سلامت وب‌سایت هنوز تأیید نشده است.')}
         except (LiaraError, httpx.HTTPError, ValueError, KeyError) as exc:
             # Unknown partial writes are expected after transport failure. Never auto-delete.
             raise DeployError(f'مرحله {stage} ناموفق یا نامعلوم است ({type(exc).__name__})؛ وضعیت پروژه را پیش از هر تکرار بررسی کنید') from exc

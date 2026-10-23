@@ -50,3 +50,53 @@ def test_changes_invalidate_deploy_approval(monkeypatch, tmp_path):
     (app / 'main.py').write_text('new')
     with pytest.raises(DeployError):
         claim_plan('actor', plan['proposal_id'], 'testing')
+
+
+def test_existing_app_upload_skips_project_creation(monkeypatch):
+    from sentinel import deployer
+    import httpx
+    calls = []
+    def handler(request):
+        calls.append((request.method,request.url.path))
+        if request.method == 'GET' and request.url.path.endswith('/v1/projects/sandbox'):
+            return httpx.Response(200,json={'project':{
+                'project_id':'sandbox','type':'python','isDeployed':False}})
+        if request.method == 'POST' and request.url.path.endswith('/v2/projects/sandbox/sources'):
+            return httpx.Response(200,json={'sourceID':'source-one'})
+        if request.method == 'POST' and request.url.path.endswith('/v2/projects/sandbox/releases'):
+            return httpx.Response(200,json={'releaseID':'release-one'})
+        return httpx.Response(409,json={'error':'unexpected request'})
+    transport=httpx.MockTransport(handler)
+    class Fake:
+        def __enter__(self):
+            from sentinel.liara import LiaraClient
+            self.client=LiaraClient(token='fake',transport=transport)
+            return self.client
+        def __exit__(self,*args): self.client.close()
+    monkeypatch.setattr(deployer,'LiaraClient',Fake)
+    result=deployer.perform_deploy('sandbox','existing','python',8000,b'test-tar-data')
+    assert result['execution']=='SUBMITTED'
+    assert result['verification']=='NOT_VERIFIED'
+    assert not any(method=='POST' and path=='/v1/projects' for method,path in calls)
+    assert ('POST','/v2/projects/sandbox/releases') in calls
+
+
+def test_existing_app_wrong_platform_blocks_upload(monkeypatch):
+    from sentinel import deployer
+    import httpx
+    calls=[]
+    def handler(request):
+        calls.append((request.method,request.url.path))
+        return httpx.Response(200,json={'project':{
+            'project_id':'sandbox','type':'node','isDeployed':False}})
+    transport=httpx.MockTransport(handler)
+    class Fake:
+        def __enter__(self):
+            from sentinel.liara import LiaraClient
+            self.client=LiaraClient(token='fake',transport=transport)
+            return self.client
+        def __exit__(self,*args): self.client.close()
+    monkeypatch.setattr(deployer,'LiaraClient',Fake)
+    with pytest.raises(DeployError):
+        deployer.perform_deploy('sandbox','existing','python',8000,b'test')
+    assert calls==[('GET','/v1/projects/sandbox')]
