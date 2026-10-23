@@ -54,7 +54,7 @@ def suspicious_source(relative_path: str, data: bytes) -> str | None:
         literal = match.group(1).strip().lower()
         if any(literal.startswith(prefix) for prefix in _SAFE_EXAMPLES + _SAFE_REFERENCES):
             continue
-        if literal in {"password", "secret", "token", "true", "false", "unset"}:
+        if literal in {"password", "secret", "token", "bearer", "true", "false", "unset"}:
             continue
         return "مقدار احتمالی رمز یا اعتبارنامه به‌صورت ثابت در فایل دیده شد"
     return None
