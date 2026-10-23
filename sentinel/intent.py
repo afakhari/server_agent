@@ -171,6 +171,11 @@ def classify(message: str) -> Decision:
                          "team", "support", "notifications"}
     if "logs" in read_tasks and "health" in read_tasks:
         read_tasks.remove("logs")
+    # These are modifiers of a more specific task, not separate goals.
+    if "backup" in read_tasks and "database" in read_tasks:
+        read_tasks.remove("database")
+    if "projects" in read_tasks and "team" in read_tasks:
+        read_tasks.remove("team")
     if len(read_tasks) > 1:
         ordered = sorted(read_tasks)
         return Decision("multi_intent", "guide", "ambiguous", tuple(sorted(hits)),
