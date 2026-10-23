@@ -7,6 +7,8 @@ import hashlib
 import importlib.util
 import json
 import os
+import re
+import secrets
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -90,7 +92,20 @@ app = FastAPI(
 
 @app.middleware('http')
 async def secure_headers(request: Request, call_next):
+    # Competition guests are isolated by an opaque, HttpOnly browser session.
+    # This is a demo identity only: it never authenticates Liara operations.
+    session_id = request.cookies.get('sentinel_demo_session', '')
+    issue_cookie = not bool(re.fullmatch(r'[A-Za-z0-9_-]{43}', session_id))
+    if issue_cookie:
+        session_id = secrets.token_urlsafe(32)
+    request.state.demo_actor = 'anonymous-demo:' + hashlib.sha256(session_id.encode()).hexdigest()
     response = await call_next(request)
+    if issue_cookie:
+        response.set_cookie(
+            'sentinel_demo_session', session_id, httponly=True, samesite='lax',
+            secure=(request.url.scheme == 'https' or os.getenv('SENTINEL_EXPOSURE_MODE') == 'private-server'),
+            max_age=7 * 24 * 3600, path='/',
+        )
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['X-Frame-Options'] = 'DENY'
     response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
@@ -140,8 +155,14 @@ class OnboardingAssessmentRequest(AssessmentInput):
 
 
 def credentials(request: Request, mode: str):
+    supplied = request.headers.get('X-Sentinel-Access-Key')
+    if mode == 'demo':
+        # Existing operator sessions remain supported, but visitors need no key.
+        return actor_digest(supplied, mode) if authorized(supplied) else request.state.demo_actor
+    if mode != 'live':
+        raise HTTPException(status_code=400, detail='حالت اجرا نامعتبر است')
     try:
-        return actor_digest(request.headers.get('X-Sentinel-Access-Key'), mode)
+        return actor_digest(supplied, mode)
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
 
@@ -170,23 +191,15 @@ def fail_from_approval(exc):
 
 
 def actor_candidates(request: Request) -> list[tuple[str, str]]:
-    """Return only principals authenticated by the same supplied access key.
+    """Return the current guest demo actor, plus an operator only if authenticated.
 
-    Team selection changes the live principal, but not demo conversation scope.
-    The candidate list never overrides the stored mode of a proposal/thread.
+    A guest cookie cannot grant access to live conversations or mutations.
     """
     supplied = request.headers.get('X-Sentinel-Access-Key')
-    candidates = []
-    for mode in ('demo', 'live'):
-        try:
-            actor = actor_digest(supplied, mode)
-        except PermissionError:
-            continue
-        candidates.append((mode, actor))
-    if not candidates:
-        raise PermissionError('کلید دسترسی Sentinel معتبر نیست.')
+    candidates = [('demo', credentials(request, 'demo'))]
+    if authorized(supplied):
+        candidates.append(('live', actor_digest(supplied, 'live')))
     return candidates
-
 
 def resolve_approval_actor(request: Request, proposal_id: str, project: str):
     """Resolve proposal by authenticated principal and its original mode."""
@@ -230,6 +243,8 @@ def config():
             'live_write_enabled': False,  # Per-project gates are checked on every operation, never advertise globally.
             'deployment_planning_available': planning_enabled,
             'auth_required': bool(os.getenv('SENTINEL_ACCESS_KEY')),
+            'guest_demo_enabled': True,
+            'guest_live_enabled': False,
             'server_profile': 'private-server' if os.getenv('SENTINEL_EXPOSURE_MODE') == 'private-server' else 'local',
             'liara_scope': 'team' if os.getenv('LIARA_TEAM_ID') else 'personal',
             'model': 'evidence-first rules + optional advisory LLM',
@@ -324,7 +339,10 @@ def approve(request: Request, payload: ApproveRequest):
 
 @app.get('/api/audit')
 def audit_history(request: Request):
-    credentials(request, 'live' if os.getenv('SENTINEL_ACCESS_KEY') else 'demo')
+    # The audit store includes activity from other sessions and real services.
+    # Never expose it through unauthenticated competition demo access.
+    if not authorized(request.headers.get('X-Sentinel-Access-Key')):
+        return {'events': [], 'note': 'دفتر حسابرسی سرور فقط برای گرداننده در دسترس است.'}
     return {'events': read_audit()}
 
 @app.get('/api/scout/demo')
