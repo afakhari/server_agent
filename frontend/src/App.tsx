@@ -92,7 +92,7 @@ function DeployCard({data,token,activeProject,mode,onProject,serverReadOnly}:{da
   const [scan,setScan] = useState<any>(data.scout || null);
   const [assessment,setAssessment] = useState<any>(null);
   const [traffic,setTraffic] = useState('unknown');
-  const [needsDatabase,setNeedsDatabase] = useState(false);
+  const [needsDatabase,setNeedsDatabase] = useState<boolean|null>(null);
   const [customDomain,setCustomDomain] = useState(false);
   const [uptimeCritical,setUptimeCritical] = useState(false);
   const [confirmation,setConfirmation] = useState('');
@@ -121,8 +121,8 @@ function DeployCard({data,token,activeProject,mode,onProject,serverReadOnly}:{da
           <option value="unknown">هنوز نمی‌دانم</option><option value="low">آزمایشی یا کم</option>
           <option value="medium">متوسط</option><option value="high">زیاد یا نامطمئن</option>
         </select></label>
-        <label>نیاز پایگاه داده<select value={needsDatabase?'yes':'no'} onChange={e=>{setNeedsDatabase(e.target.value==='yes');setAssessment(null);}}>
-          <option value="no">فعلاً نه / نمی‌دانم</option><option value="yes">بله</option>
+        <label>نیاز پایگاه داده<select value={needsDatabase===null?'unknown':needsDatabase?'yes':'no'} onChange={e=>{setNeedsDatabase(e.target.value==='unknown'?null:e.target.value==='yes');setAssessment(null);}}>
+          <option value="unknown">نمی‌دانم؛ نیازمند بررسی</option><option value="no">خیر</option><option value="yes">بله</option>
         </select></label>
         <label>دامنه اختصاصی<select value={customDomain?'yes':'no'} onChange={e=>{setCustomDomain(e.target.value==='yes');setAssessment(null);}}>
           <option value="no">فعلاً خیر</option><option value="yes">بله</option>
