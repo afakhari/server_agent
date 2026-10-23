@@ -156,11 +156,11 @@ function DeployCard({data,token,activeProject,mode,onProject,serverReadOnly}:{da
     </div>
     <div className="formgrid">
       <label>مسیر سورس در فضای کاری مجاز<input value={path} onChange={e=>{setPath(e.target.value);setAssessment(null);setScan(null);setPlan(null);}} dir="ltr"/></label>
-      <label>شناسه برنامه آزمایشی<input value={project} onChange={e=>setProject(e.target.value)} dir="ltr" /></label>
-      <label>روش انتشار<select value={backend} onChange={e=>setBackend(e.target.value)}><option value="api-existing">API · برنامه موجود</option><option value="api">API · ساخت برنامه</option><option value="cli">CLI · برنامه موجود</option></select></label>
+      <label>شناسه برنامه آزمایشی<input value={project} onChange={e=>{setProject(e.target.value);setAssessment(null);setPlan(null);setResult(null);}} dir="ltr" /></label>
+      <label>روش انتشار<select value={backend} onChange={e=>{setBackend(e.target.value);setAssessment(null);setPlan(null);setResult(null);}}><option value="api-existing">API · برنامه موجود</option><option value="api">API · ساخت برنامه</option><option value="cli">CLI · برنامه موجود</option></select></label>
       <label>پلتفرم<select value={platform} onChange={e=>{setPlatform(e.target.value);setAssessment(null);setPlan(null);}}><option value="python">Python</option><option value="node">Node</option><option value="php">PHP</option><option value="docker">Docker</option></select></label>
       <label>پورت<input value={port} onChange={e=>{setPort(e.target.value);setAssessment(null);setPlan(null);}} type="number" min="1" max="65535" dir="ltr"/></label>
-      {backend==='api' && <label>شناسه پلن معتبر<input value={planId} onChange={e=>setPlanId(e.target.value)} dir="ltr"/></label>}
+      {backend==='api' && <label>شناسه پلن معتبر<input value={planId} onChange={e=>{setPlanId(e.target.value);setPlan(null);}} dir="ltr"/></label>}
     </div>
     <div className="actions">
       <button className="secondary" disabled={busy||mode!=='live'||!token} onClick={()=>run(()=>api('/api/scout',{path}),x=>setScan(x.analysis))}>تحلیل سورس</button>
@@ -256,9 +256,10 @@ export default function App() {
   const [error,setError] = useState('');
   const [engine,setEngine] = useState('');
   const [serverReadOnly,setServerReadOnly] = useState(true);
+  const [authRequired,setAuthRequired] = useState(false);
   useEffect(()=>{
     fetch('/api/config').then(r=>r.ok?r.json():Promise.reject(new Error('config unavailable')))
-      .then(data=>setServerReadOnly(data.server_profile!=='local'))
+      .then(data=>{setServerReadOnly(data.server_profile!=='local');setAuthRequired(Boolean(data.auth_required));})
       .catch(()=>setServerReadOnly(true));
   },[]);
   const headers = useMemo(()=>({'Content-Type':'application/json','X-Sentinel-Access-Key':token}),[token]);
@@ -324,7 +325,7 @@ export default function App() {
         <div className="utilitybar">
           <label><Server size={15}/> شناسه پروژه<input value={project} onChange={e=>setProject(e.target.value)} placeholder="نام پروژه در لیارا" dir="ltr"/></label>
           {mode==='demo' && <label>سناریو<select value={scenario} onChange={e=>setScenario(e.target.value)}><option value="transient">خرابی فرایند</option><option value="env">متغیر محیطی</option><option value="memory">کمبود حافظه</option><option value="release">خطای انتشار</option><option value="healthy">سالم</option></select></label>}
-          <label className="access"><KeyRound size={15}/><input type="password" autoComplete="off" value={token} onChange={e=>setToken(e.target.value)} placeholder="کلید Sentinel در صورت فعال بودن حفاظت" aria-label="کلید دسترسی Sentinel"/></label>
+          <label className="access"><KeyRound size={15}/><input type="password" autoComplete="off" value={token} onChange={e=>setToken(e.target.value)} placeholder={authRequired?'کلید دسترسی Sentinel الزامی است':'کلید Sentinel در صورت نیاز'} aria-label="کلید دسترسی Sentinel"/></label>
           <button className="iconbutton" onClick={()=>void refreshThreads()} title="بروزرسانی تاریخچه"><RefreshCcw size={16}/></button>
         </div>
         <div className="chatregion">
