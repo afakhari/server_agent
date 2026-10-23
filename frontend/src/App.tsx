@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { AppendMessage, ThreadMessageLike } from '@assistant-ui/react';
 import { AssistantRuntimeProvider, useExternalStoreRuntime, ThreadPrimitive, MessagePrimitive, ComposerPrimitive, AuiIf } from '@assistant-ui/react';
-import { Activity, ArrowUp, BookOpen, CheckCircle2, ChevronDown, CircleAlert, CircleHelp, ClipboardCheck, CloudUpload, FileSearch, History, KeyRound, List, LoaderCircle, Menu, PanelLeftClose, Plus, RefreshCcw, Rocket, Server, ShieldCheck, Sparkles, X } from 'lucide-react';
+import { Activity, ArrowUp, BookOpen, CheckCircle2, ChevronDown, CircleAlert, ClipboardCheck, CloudUpload, FileSearch, History, KeyRound, List, LoaderCircle, Menu, PanelLeftClose, Plus, RefreshCcw, Server, ShieldCheck, Sparkles, X } from 'lucide-react';
 
 type UIPayload = { type?: string; [key: string]: any };
 type ChatItem = { id: string; role: 'user'|'assistant'; content: string; ui?: UIPayload; at: number };
