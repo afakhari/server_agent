@@ -27,6 +27,7 @@ function Report({data, onApproval, resolved}:{data:any;onApproval:(proposal:any,
   const [showEvidence,setShowEvidence] = useState(false);
   const [confirmation,setConfirmation] = useState('');
   const [busy,setBusy] = useState(false);
+  const [handoffNotice,setHandoffNotice] = useState('');
   const [clock,setClock] = useState(()=>Date.now()/1000);
   const report = data.report || {};
   const proposal = report.proposals?.[0];
@@ -51,6 +52,19 @@ function Report({data, onApproval, resolved}:{data:any;onApproval:(proposal:any,
       <p>{h.reason}</p><small>شواهد: {(h.evidence_ids||[]).join('، ')||'موجود نیست'}</small>
     </div>)}
     {report.recommendation && <div className="finding"><b>پیشنهاد:</b> {report.recommendation}</div>}
+    {report.coding_handoff && <div className="finding">
+      <strong><BookOpen size={15}/> مسیر اصلاح کد (با بازبینی انسانی)</strong>
+      <p>این خروجی، شرح مسئله برای Coding Agent است؛ هنوز هیچ کدی تغییر نکرده و Pull Request ساخته نشده است.</p>
+      <button className="secondary" onClick={async()=>{
+        try {
+          await navigator.clipboard.writeText(JSON.stringify(report.coding_handoff,null,2));
+          setHandoffNotice('خلاصه بی‌خطر مسئله برای بازبینی کپی شد. هیچ فایلی تغییر نکرد.');
+        } catch {
+          setHandoffNotice('اجازه دسترسی به Clipboard داده نشد؛ از محیط HTTPS و مجوز مرورگر استفاده کنید.');
+        }
+      }}><ClipboardCheck size={15}/> کپی خلاصه قابل‌ارسال به Coding Agent</button>
+      {handoffNotice && <p role="status" className="secondarytext">{handoffNotice}</p>}
+    </div>
     {report.ai_commentary?.mode === 'advisory-llm' && <p className="advisory"><Sparkles size={14}/> {report.ai_commentary.narrative}</p>}
     <button className="plainbtn" onClick={()=>setShowEvidence(v=>!v)} aria-expanded={showEvidence}><List size={15}/> {showEvidence?'بستن شواهد':'مشاهده شواهد و منابع'} <ChevronDown size={14}/></button>
     {showEvidence && <div className="evidencelist">{(report.evidence||[]).map((ev:any)=><div className="evidence" key={ev.id}><strong dir="ltr">{ev.id}</strong> · {ev.text}<small dir="ltr">{ev.source}</small></div>)}</div>}
@@ -76,6 +90,11 @@ function DeployCard({data,token,activeProject,mode,onProject,serverReadOnly}:{da
   const [planId,setPlanId] = useState('');
   const [plan,setPlan] = useState<any>(null);
   const [scan,setScan] = useState<any>(data.scout || null);
+  const [assessment,setAssessment] = useState<any>(null);
+  const [traffic,setTraffic] = useState('unknown');
+  const [needsDatabase,setNeedsDatabase] = useState(false);
+  const [customDomain,setCustomDomain] = useState(false);
+  const [uptimeCritical,setUptimeCritical] = useState(false);
   const [confirmation,setConfirmation] = useState('');
   const [result,setResult] = useState<any>(null);
   const [executeAttempted,setExecuteAttempted] = useState(false);
@@ -94,17 +113,58 @@ function DeployCard({data,token,activeProject,mode,onProject,serverReadOnly}:{da
     <div className="cardhead"><strong><CloudUpload size={17}/> استقرار هدایت‌شده</strong><span className="tag">{mode==='demo'?'آزمایش نمایشی':'محیط واقعی محدود'}</span></div>
     {serverReadOnly && mode==='live' && <div className="caution"><ShieldCheck size={15}/> این سرور فقط برای بررسی خواندنی فعال است. پیش‌نمایش انتشار و عملیات واقعی در این محیط غیرفعال‌اند؛ برای انتشار، سرور آزمایشی مجاز و تنظیمات مستقل لازم است.</div>}
     {scan && <div className="finding"><b>شناسایی پروژه:</b> {scan.framework} / {scan.platform} · پورت {scan.port}<div className="secondarytext">متغیرهای لازم: {(scan.required_env_names||[]).join('، ')||'گزارش نشده'}</div></div>}
+    <div className="finding">
+      <strong><FileSearch size={16}/> گام اول · نیازسنجی و انتخاب مسیر مناسب</strong>
+      <p>فناوری پروژه را از فایل‌های واقعی بررسی می‌کنم. قیمت و شناسه پلن فقط از اطلاعات تأییدشده حساب قابل تعیین است.</p>
+      <div className="formgrid">
+        <label>ترافیک مورد انتظار<select value={traffic} onChange={e=>{setTraffic(e.target.value);setAssessment(null);}}>
+          <option value="unknown">هنوز نمی‌دانم</option><option value="low">آزمایشی یا کم</option>
+          <option value="medium">متوسط</option><option value="high">زیاد یا نامطمئن</option>
+        </select></label>
+        <label>نیاز پایگاه داده<select value={needsDatabase?'yes':'no'} onChange={e=>{setNeedsDatabase(e.target.value==='yes');setAssessment(null);}}>
+          <option value="no">فعلاً نه / نمی‌دانم</option><option value="yes">بله</option>
+        </select></label>
+        <label>دامنه اختصاصی<select value={customDomain?'yes':'no'} onChange={e=>{setCustomDomain(e.target.value==='yes');setAssessment(null);}}>
+          <option value="no">فعلاً خیر</option><option value="yes">بله</option>
+        </select></label>
+        <label>حساسیت به قطعی<select value={uptimeCritical?'high':'normal'} onChange={e=>{setUptimeCritical(e.target.value==='high');setAssessment(null);}}>
+          <option value="normal">عادی</option><option value="high">بالا</option>
+        </select></label>
+      </div>
+      <button className="secondary" disabled={busy|| (mode==='live'&&!token)} onClick={()=>run(
+        ()=>api('/api/onboarding/assess',{
+          mode:mode==='demo'?'demo':'live',path:mode==='demo'?null:path,
+          traffic,workload:'web',needs_database:needsDatabase,
+          custom_domain:customDomain,uptime_critical:uptimeCritical,
+          existing_app:backend!=='api',port:Number(port)
+        }),
+        x=>{setAssessment(x);setPlan(null);setResult(null);}
+      )}><FileSearch size={15}/> بررسی آمادگی و پیشنهاد منابع</button>
+      {assessment && <div aria-live="polite" className="finding">
+        <p><b>نتیجه ارزیابی:</b> {assessment.readiness==='blocked'?'نیاز به اصلاح قبل از انتشار':'آماده بازبینی توسط کاربر، نه آماده انتشار خودکار'}</p>
+        <p>فناوری: {assessment.framework} / {assessment.platform} · پورت پیشنهادی: {assessment.port||'نامشخص'}</p>
+        <p><b>پیشنهاد منابع:</b> {assessment.resource_guidance}</p>
+        <p><b>پلن و قیمت لیارا:</b> هنوز از حساب واقعی تأیید نشده‌اند.</p>
+        {(assessment.blockers||[]).map((x:string,i:number)=><p className="caution" key={'b'+i}>{x}</p>)}
+        {(assessment.warnings||[]).map((x:string,i:number)=><p className="secondarytext" key={'w'+i}>{x}</p>)}
+        <strong>مراحل باقی‌مانده</strong>
+        {(assessment.steps||[]).map((x:any)=><div key={x.id} className="secondarytext">
+          {x.status==='reviewed'?'✓ ': '○ '}{x.title} · {x.responsible==='operator'?'نیازمند اقدام شما':'با کمک دستیار'}
+        </div>)}
+        <p className="secondarytext">{assessment.disclaimer}</p>
+      </div>}
+    </div>
     <div className="formgrid">
-      <label>مسیر سورس در فضای کاری مجاز<input value={path} onChange={e=>setPath(e.target.value)} dir="ltr"/></label>
+      <label>مسیر سورس در فضای کاری مجاز<input value={path} onChange={e=>{setPath(e.target.value);setAssessment(null);setScan(null);setPlan(null);}} dir="ltr"/></label>
       <label>شناسه برنامه آزمایشی<input value={project} onChange={e=>setProject(e.target.value)} dir="ltr" /></label>
       <label>روش انتشار<select value={backend} onChange={e=>setBackend(e.target.value)}><option value="api-existing">API · برنامه موجود</option><option value="api">API · ساخت برنامه</option><option value="cli">CLI · برنامه موجود</option></select></label>
-      <label>پلتفرم<select value={platform} onChange={e=>setPlatform(e.target.value)}><option value="python">Python</option><option value="node">Node</option><option value="php">PHP</option><option value="docker">Docker</option></select></label>
-      <label>پورت<input value={port} onChange={e=>setPort(e.target.value)} type="number" min="1" max="65535" dir="ltr"/></label>
+      <label>پلتفرم<select value={platform} onChange={e=>{setPlatform(e.target.value);setAssessment(null);setPlan(null);}}><option value="python">Python</option><option value="node">Node</option><option value="php">PHP</option><option value="docker">Docker</option></select></label>
+      <label>پورت<input value={port} onChange={e=>{setPort(e.target.value);setAssessment(null);setPlan(null);}} type="number" min="1" max="65535" dir="ltr"/></label>
       {backend==='api' && <label>شناسه پلن معتبر<input value={planId} onChange={e=>setPlanId(e.target.value)} dir="ltr"/></label>}
     </div>
     <div className="actions">
       <button className="secondary" disabled={busy||mode!=='live'||!token} onClick={()=>run(()=>api('/api/scout',{path}),x=>setScan(x.analysis))}>تحلیل سورس</button>
-      <button className="primary" disabled={busy||serverReadOnly||mode!=='live'||!token||!project||!path||(backend==='api'&&!planId)||!Number.isInteger(Number(port))||Number(port)<1||Number(port)>65535} onClick={()=>run(()=>api('/api/deploy/plan',{backend,project,path,platform,port:Number(port),plan_id:backend==='api'?planId:'existing'}),x=>{setPlan(x);setConfirmation('');setExecuteAttempted(false);setResult(null);setVerification(null);onProject(x.project);})}>پیش‌نمایش انتشار</button>
+      <button className="primary" disabled={busy||serverReadOnly||mode!=='live'||!token||!project||!path||!assessment||assessment.readiness==='blocked'||(backend==='api'&&!planId)||!Number.isInteger(Number(port))||Number(port)<1||Number(port)>65535} onClick={()=>run(()=>api('/api/deploy/plan',{backend,project,path,platform,port:Number(port),plan_id:backend==='api'?planId:'existing'}),x=>{setPlan(x);setConfirmation('');setExecuteAttempted(false);setResult(null);setVerification(null);onProject(x.project);})}>پیش‌نمایش انتشار</button>
     </div>
     {mode==='demo' && <div className="caution">این نمونه شبیه‌سازی است. عملیات انتشار واقعی فقط با اتصال امن و مجوز سمت سرور فعال می‌شود.</div>}
     {plan && <div className="approval"><strong>پیش‌نمایش عملیات واقعی</strong>
