@@ -1,0 +1,57 @@
+# Single-host, private evaluation deployment. NOT a multi-tenant public service.
+name: liara-sentinel-staging
+services:
+  sentinel:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: liara-sentinel:staging
+    env_file:
+      - ./deploy/server/app.env
+    environment:
+      SENTINEL_EXPOSURE_MODE: private-server
+      SENTINEL_DB_PATH: /data/sentinel.sqlite3
+      SENTINEL_ALLOW_LIVE_WRITES: "false"
+      SENTINEL_CLI_DEPLOY_ENABLED: "false"
+    volumes:
+      - sentinel_data:/data
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=64m,mode=1777
+    read_only: true
+    user: "10001:10001"
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    networks: [internal]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz',timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  caddy:
+    image: caddy:2
+    env_file:
+      - ./deploy/server/caddy.env
+    depends_on:
+      sentinel:
+        condition: service_healthy
+    volumes:
+      - ./deploy/server/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    ports:
+      - "80:80"
+      - "443:443"
+    networks: [internal]
+    restart: unless-stopped
+
+volumes:
+  sentinel_data:
+  caddy_data:
+  caddy_config:
+networks:
+  internal:
+    driver: bridge
