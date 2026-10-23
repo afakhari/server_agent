@@ -453,10 +453,17 @@ def chat_approval(request: Request, payload: ChatApprovalRequest):
     try:
         thread = chat_service.thread_data(actor, payload.thread_id)
         # Proposal must belong to this exact thread; the model cannot invent approvals.
-        valid = any(m['role'] == 'assistant' and
-                    any(p.get('proposal_id') == payload.proposal_id
-                        for p in m['ui'].get('report', {}).get('proposals', []))
-                    for m in thread['messages'])
+        # Only the latest assistant decision can be approved. If the user has
+        # changed topic or received another answer, old cards cannot be used.
+        messages = thread['messages']
+        latest = messages[-1] if messages else None
+        valid = bool(
+            latest and latest['role'] == 'assistant' and
+            latest['ui'].get('type') == 'inspection' and
+            any(p.get('proposal_id') == payload.proposal_id
+                for p in latest['ui'].get('report', {}).get('proposals', [])) and
+            latest['ui'].get('report', {}).get('project') == payload.confirm_project
+        )
         if not valid:
             raise PermissionError('این عملیات متعلق به گفت‌وگوی جاری نیست.')
         if payload.approved:
