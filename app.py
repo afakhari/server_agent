@@ -208,10 +208,11 @@ def deploy_plan(request: Request, payload: DeployPlanRequest):
     if not live_writes_permitted(payload.project):
         raise HTTPException(403, 'طرح انتشار فقط برای پروژه آزمایشی مجاز با پرچم نوشتن فعال قابل ایجاد است')
     try:
-        if payload.backend == 'api':
-            result = make_plan(actor, payload.project, payload.path, payload.plan_id,
+        if payload.backend in ('api', 'api-existing'):
+            plan = 'existing' if payload.backend == 'api-existing' else payload.plan_id
+            result = make_plan(actor, payload.project, payload.path, plan,
                                payload.platform, payload.port)
-            result['backend'] = 'api'
+            result['backend'] = payload.backend
         elif payload.backend == 'cli':
             result = make_cli_plan(actor, payload.project, payload.path,
                                    payload.platform, payload.port)
