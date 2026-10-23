@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AppendMessage, ThreadMessageLike } from '@assistant-ui/react';
 import { AssistantRuntimeProvider, useExternalStoreRuntime, ThreadPrimitive, MessagePrimitive, ComposerPrimitive, AuiIf } from '@assistant-ui/react';
-import { Activity, ArrowUp, BookOpen, CheckCircle2, ChevronDown, CircleAlert, ClipboardCheck, CloudUpload, FileSearch, History, KeyRound, List, LoaderCircle, Menu, PanelLeftClose, Plus, RefreshCcw, Server, ShieldCheck, Sparkles, X } from 'lucide-react';
+import { Activity, ArrowUp, BookOpen, CheckCircle2, ChevronDown, CircleAlert, ClipboardCheck, CloudUpload, FileSearch, History, List, LoaderCircle, Menu, PanelLeftClose, Plus, RefreshCcw, Server, ShieldCheck, Sparkles, X } from 'lucide-react';
 
 type UIPayload = { type?: string; [key: string]: any };
 type ChatItem = { id: string; role: 'user'|'assistant'; content: string; ui?: UIPayload; at: number };
@@ -263,7 +263,7 @@ export default function App() {
   const [mode,setMode] = useState<'demo'|'live'>('demo');
   const [scenario,setScenario] = useState('transient');
   const [project,setProject] = useState('');
-  const [token,setToken] = useState('');
+  const token = ''; // Never collect or send a Sentinel access key from this UI.
   const [running,setRunning] = useState(false);
   const sendingRef = useRef(false);
   const [status,setStatus] = useState('');
