@@ -264,3 +264,26 @@ def test_infrastructure_credentials_never_saved_or_sent_to_models(secret):
     assert "INSECURE_DEMO_ONLY_EXAMPLE_VALUE" not in str(thread)
     assert "EXAMPLE-SECRET-PRIVATE-KEY-MATERIAL" not in str(thread)
     assert "password@" not in str(thread)
+
+
+
+def test_changed_project_cannot_reuse_existing_chat_context():
+    first = conversation.respond("operator", "live", "سلام", project="first-app")
+    with pytest.raises(ValueError, match="گفت‌وگوی جدید"):
+        conversation.respond("operator", "live", "وضعیت پروژه دوم",
+                             thread_id=first["thread_id"], project="second-app")
+    history = conversation.thread_data("operator", first["thread_id"])
+    assert history["project"] == "first-app"
+    assert len(history["messages"]) == 2
+
+
+def test_failed_in_flight_request_is_never_blindly_executed_again():
+    actor = "operator"
+    payload_data = {
+        "mode": "demo", "thread_id": None,
+        "project": None, "scenario": "transient", "text": "سلام",
+    }
+    assert conversation.begin_request(actor, REQ, payload_data) is None
+    with pytest.raises(RuntimeError, match="قبلاً"):
+        conversation.begin_request(actor, REQ, payload_data)
+    assert conversation.list_threads(actor) == []
