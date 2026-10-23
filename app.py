@@ -4,36 +4,109 @@ All real modifications are restricted to explicitly allowlisted disposable proje
 This is a local evaluation server, not a production multi-user SaaS.
 """
 import hashlib
+import importlib.util
 import json
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from typing import Literal
+
+from sentinel.onboarding import AssessmentInput, assess as assess_onboarding
 
 from sentinel.engine import diagnose, mock_snapshot
 from sentinel.health import verify_http
+from sentinel.handoff import make_handoff
 from sentinel.deployer import DeployError, make_plan, claim_plan, perform_deploy
 from sentinel.cli import make_cli_plan, claim_cli_plan, perform_cli_deploy, configured as cli_enabled
 from sentinel.liara import LiaraClient, LiaraError, validate_name
 from sentinel.reasoner import narrative
 from sentinel.scout import inspect_repo, repo_from_workspace
 from sentinel.security import (
-    actor_digest, authorized, audit, consume_approval, create_approval,
+    actor_digest, authorized, audit, cancel_approval, consume_approval, create_approval,
     inspect_approval, read_audit
 )
 
 ROOT = Path(__file__).resolve().parent
-app = FastAPI(title='Liara Sentinel', version='0.2.0', description='Evidence-first, human-approved operations')
+
+
+def validate_server_config() -> None:
+    """Fail closed before binding a private staging service.
+
+    The reverse proxy MUST authenticate users. This is not multi-tenant.
+    """
+    profile = os.getenv('SENTINEL_EXPOSURE_MODE', 'local')
+    if profile not in ('local', 'private-server'):
+        raise RuntimeError('SENTINEL_EXPOSURE_MODE نامعتبر است')
+    if profile == 'local':
+        return
+    access = os.getenv('SENTINEL_ACCESS_KEY', '')
+    if len(access) < 32 or len(set(access)) < 16 or access.upper().startswith('REPLACE_') or access.isspace() or access.lower() in {
+        'change-me', 'changeme', 'your-secret', 'your-key',
+    }:
+        raise RuntimeError('حالت سرور نیازمند کلید Sentinel تصادفی حداقل ۳۲ نویسه است')
+    if os.getenv('SENTINEL_ALLOW_LIVE_WRITES', '').lower() == 'true':
+        raise RuntimeError('عملیات نوشتنی لیارا روی سرور آزمایشی خصوصی غیرفعال باید بماند')
+    if os.getenv('SENTINEL_CLI_DEPLOY_ENABLED', '').lower() == 'true':
+        raise RuntimeError('انتشار CLI در حالت سرور آزمایشی خصوصی مجاز نیست')
+    db = Path(os.getenv('SENTINEL_DB_PATH', ''))
+    if not db.is_absolute() or str(db) in ('/', ''):
+        raise RuntimeError('SENTINEL_DB_PATH باید فایل مطلق داخل volume دائمی باشد')
+    if not db.parent.is_dir() or not os.access(db.parent, os.W_OK | os.X_OK):
+        raise RuntimeError('مسیر volume دیتابیس موجود یا قابل نوشتن نیست')
+    if importlib.util.find_spec('langgraph') is None:
+        raise RuntimeError('LangGraph روی سرور نصب نیست؛ fallback برای استقرار سرور مجاز نیست')
+    if not (ROOT / 'frontend' / 'dist' / 'index.html').is_file():
+        raise RuntimeError('نسخه production فرانت‌اند ساخته نشده است؛ npm run build لازم است')
+    if not (ROOT / 'frontend' / 'dist' / 'assets').is_dir():
+        raise RuntimeError('فایل‌های static فرانت‌اند موجود نیستند')
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    validate_server_config()
+    if os.getenv('SENTINEL_EXPOSURE_MODE') == 'private-server':
+        from sentinel.security import session
+        from sentinel.conversation import db_session
+        with session() as conn:
+            conn.execute('SELECT 1')
+        with db_session() as conn:
+            conn.execute('SELECT 1')
+    yield
+
+
+app = FastAPI(
+    title='Liara Sentinel', version='0.3.0',
+    description='Evidence-first, human-approved operations',
+    lifespan=lifespan,
+    docs_url=None if os.getenv('SENTINEL_EXPOSURE_MODE') == 'private-server' else '/docs',
+    redoc_url=None if os.getenv('SENTINEL_EXPOSURE_MODE') == 'private-server' else '/redoc',
+    openapi_url=None if os.getenv('SENTINEL_EXPOSURE_MODE') == 'private-server' else '/openapi.json',
+)
 
 @app.middleware('http')
 async def secure_headers(request: Request, call_next):
     response = await call_next(request)
     response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
     response.headers['Referrer-Policy'] = 'no-referrer'
     response.headers['Cache-Control'] = 'no-store'
-    response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; frame-ancestors 'none'"
+    if os.getenv('SENTINEL_EXPOSURE_MODE') == 'private-server':
+        response.headers['Content-Security-Policy'] = (
+            "default-src 'self'; base-uri 'none'; form-action 'self'; "
+            "script-src 'self'; style-src 'self'; img-src 'self' data:; "
+            "font-src 'self'; connect-src 'self'; object-src 'none'; frame-ancestors 'none'"
+        )
+    else:
+        response.headers['Content-Security-Policy'] = (
+            "default-src 'self'; script-src 'self' 'unsafe-inline'; "
+            "style-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; frame-ancestors 'none'"
+        )
     return response
 
 class InspectRequest(BaseModel):
@@ -61,6 +134,11 @@ class ScoutRequest(BaseModel):
     path: str = Field(min_length=1, max_length=200)
 
 
+class OnboardingAssessmentRequest(AssessmentInput):
+    mode: Literal['demo', 'live'] = 'demo'
+    path: str | None = Field(default=None, max_length=200)
+
+
 def credentials(request: Request, mode: str):
     try:
         return actor_digest(request.headers.get('X-Sentinel-Access-Key'), mode)
@@ -79,7 +157,8 @@ def fp(snap):
 
 def live_writes_permitted(project: str) -> bool:
     projects = {p.strip() for p in os.getenv('SENTINEL_ALLOWED_PROJECTS', '').split(',') if p.strip()}
-    return (os.getenv('SENTINEL_ALLOW_LIVE_WRITES', '').lower() == 'true'
+    return (os.getenv('SENTINEL_EXPOSURE_MODE', 'local') != 'private-server'
+            and os.getenv('SENTINEL_ALLOW_LIVE_WRITES', '').lower() == 'true'
             and len(os.getenv('SENTINEL_ACCESS_KEY', '')) >= 24
             and project in projects and bool(os.getenv('LIARA_API_TOKEN')))
 
@@ -89,15 +168,69 @@ def fail_from_approval(exc):
                TimeoutError: 410, ValueError: 409}
     return HTTPException(mapping.get(type(exc), 400), str(exc))
 
+
+def actor_candidates(request: Request) -> list[tuple[str, str]]:
+    """Return only principals authenticated by the same supplied access key.
+
+    Team selection changes the live principal, but not demo conversation scope.
+    The candidate list never overrides the stored mode of a proposal/thread.
+    """
+    supplied = request.headers.get('X-Sentinel-Access-Key')
+    candidates = []
+    for mode in ('demo', 'live'):
+        try:
+            actor = actor_digest(supplied, mode)
+        except PermissionError:
+            continue
+        candidates.append((mode, actor))
+    if not candidates:
+        raise PermissionError('کلید دسترسی Sentinel معتبر نیست.')
+    return candidates
+
+
+def resolve_approval_actor(request: Request, proposal_id: str, project: str):
+    """Resolve proposal by authenticated principal and its original mode."""
+    last_error = None
+    for mode, actor in actor_candidates(request):
+        try:
+            proposal = inspect_approval(proposal_id, actor, project)
+        except PermissionError as exc:
+            last_error = exc
+            continue
+        if proposal['mode'] == mode:
+            return actor, proposal
+        # When demo/live hashes coincide, the second candidate may be the
+        # exact mode; never authorize by hash match alone.
+    raise last_error or PermissionError('مجوز متعلق به حساب یا حالت جاری نیست.')
+
+@app.get('/healthz', include_in_schema=False)
+def healthz():
+    """Internal liveness probe: no credentials, token checks or upstream calls."""
+    return {'status': 'ok'}
+
+
 @app.get('/')
 def home():
-    return FileResponse(ROOT / 'static' / 'index.html')
+    built = ROOT / 'frontend' / 'dist' / 'index.html'
+    return FileResponse(built if built.is_file() else ROOT / 'static' / 'index.html')
+
+if (ROOT / 'frontend' / 'dist' / 'assets').is_dir():
+    app.mount('/assets', StaticFiles(directory=ROOT / 'frontend' / 'dist' / 'assets'), name='frontend-assets')
 
 @app.get('/api/config')
 def config():
+    planning_enabled = (
+        os.getenv('SENTINEL_EXPOSURE_MODE', 'local') == 'local'
+        and os.getenv('SENTINEL_ALLOW_LIVE_WRITES', '').lower() == 'true'
+        and len(os.getenv('SENTINEL_ACCESS_KEY', '')) >= 24
+        and bool(os.getenv('LIARA_API_TOKEN'))
+        and bool(os.getenv('SENTINEL_ALLOWED_PROJECTS', '').strip())
+    )
     return {'live_read_enabled': bool(os.getenv('LIARA_API_TOKEN')) and len(os.getenv('SENTINEL_ACCESS_KEY','')) >= 24,
             'live_write_enabled': False,  # Per-project gates are checked on every operation, never advertise globally.
+            'deployment_planning_available': planning_enabled,
             'auth_required': bool(os.getenv('SENTINEL_ACCESS_KEY')),
+            'server_profile': 'private-server' if os.getenv('SENTINEL_EXPOSURE_MODE') == 'private-server' else 'local',
             'liara_scope': 'team' if os.getenv('LIARA_TEAM_ID') else 'personal',
             'model': 'evidence-first rules + optional advisory LLM',
             'warning': 'نسخه آزمایشی؛ برای محیط عمومی و چندکاربره آماده نیست'}
@@ -127,7 +260,12 @@ def inspect(request: Request, payload: InspectRequest):
     except LiaraError as exc:
         raise HTTPException(502, str(exc)) from exc
     report = diagnose(snap)
+    report['coding_handoff'] = make_handoff(report)
     report['ai_commentary'] = narrative(report)
+    if payload.mode == 'live' and not live_writes_permitted(snap['name']):
+        if report['proposals']:
+            report['proposals'] = []
+            report['limitations'].append('اجرای عملیات روی این سرور فعال نیست؛ گزارش فقط برای بررسی است.')
     for proposal in report['proposals']:
         proposal['proposal_id'] = create_approval(actor, payload.mode, snap['name'],
                                                   proposal['operation'], fp(snap))
@@ -137,11 +275,12 @@ def inspect(request: Request, payload: InspectRequest):
 
 @app.post('/api/approve')
 def approve(request: Request, payload: ApproveRequest):
-    # No trusting client-supplied action, mode, target, plan or state.
+    # Derive both potential principals, then authorize using the proposal's
+    # OWN recorded mode. Demo and live actor hashes diverge in team accounts.
+    # Never infer proposal mode from the mere presence of a server access key.
     try:
-        actor = actor_digest(request.headers.get('X-Sentinel-Access-Key'), 'live'
-                             if os.getenv('SENTINEL_ACCESS_KEY') else 'demo')
-        proposal = inspect_approval(payload.proposal_id, actor, payload.confirm_project)
+        actor, proposal = resolve_approval_actor(
+            request, payload.proposal_id, payload.confirm_project)
     except (PermissionError, LookupError, RuntimeError, TimeoutError, ValueError) as exc:
         raise fail_from_approval(exc) from exc
     mode, project = proposal['mode'], proposal['project']
@@ -201,6 +340,28 @@ def scout_workspace(request: Request, payload: ScoutRequest):
                 'disclaimer': 'این مرحله دیپلوی واقعی انجام نمی‌دهد.'}
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
+
+
+@app.post('/api/onboarding/assess')
+def onboarding_assess(request: Request, payload: OnboardingAssessmentRequest):
+    """Read-only onboarding. No prices/plan IDs are inferred or operations submitted."""
+    credentials(request, payload.mode)
+    try:
+        if payload.mode == 'demo':
+            root = ROOT / 'examples' / 'fastapi-shop'
+        else:
+            if not payload.path:
+                raise ValueError('برای تحلیل سورس واقعی، مسیر پروژه در فضای کاری مجاز لازم است')
+            root = repo_from_workspace(payload.path)
+        inspection = inspect_repo(root)
+        details = AssessmentInput.model_validate(payload.model_dump(
+            exclude={'mode', 'path'}))
+        result = assess_onboarding(inspection, details)
+        result['mode'] = payload.mode
+        result['source'] = 'synthetic-demo' if payload.mode == 'demo' else 'local-workspace'
+        return result
+    except (ValueError, OSError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.post('/api/deploy/plan')
@@ -302,3 +463,254 @@ def deployment_status(request: Request, project: str):
         'health_observation': observed, 'judgment': judgment,
         'note': 'یک HTTP 200 یا وضعیت آماده نسخه، به‌تنهایی اثبات بازیابی پایدار نیست.'
     }
+
+
+# Conversational API: graph tools are read-only; writes stay behind existing policies.
+from sentinel import conversation as chat_service
+
+
+class ChatMessageRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=3000)
+    thread_id: str | None = None
+    mode: str = 'demo'
+    project: str | None = None
+    scenario: str = 'transient'
+    request_id: str | None = Field(default=None, min_length=16, max_length=128,
+                                   pattern=r'^[A-Za-z0-9_-]+
+
+
+class ChatApprovalRequest(BaseModel):
+    thread_id: str
+    proposal_id: str
+    confirm_project: str
+    approved: bool
+
+
+@app.post('/api/chat/messages')
+def chat_message(request: Request, payload: ChatMessageRequest):
+    actor = credentials(request, payload.mode)
+    try:
+        return chat_service.respond(actor, payload.mode, payload.message,
+                                    payload.thread_id, payload.project, payload.scenario,
+                                    payload.request_id)
+    except (ValueError, PermissionError, RuntimeError) as exc:
+        code = (403 if isinstance(exc, PermissionError) else
+                409 if isinstance(exc, RuntimeError) else 400)
+        raise HTTPException(code, str(exc)) from exc
+
+
+@app.post('/api/chat/stream')
+def chat_stream(request: Request, payload: ChatMessageRequest):
+    actor = credentials(request, payload.mode)
+    def iterate():
+        yield 'event: status\ndata: ' + json.dumps({'label': 'در حال تحلیل درخواست و انتخاب ابزار'}) + '\n\n'
+        try:
+            output = chat_service.respond(actor, payload.mode, payload.message,
+                                          payload.thread_id, payload.project, payload.scenario,
+                                          payload.request_id)
+            yield 'event: complete\ndata: ' + json.dumps(output, ensure_ascii=False) + '\n\n'
+        except (ValueError, PermissionError, RuntimeError, LiaraError) as exc:
+            yield 'event: error\ndata: ' + json.dumps({'detail': str(exc)}, ensure_ascii=False) + '\n\n'
+        except Exception:
+            yield 'event: error\ndata: ' + json.dumps(
+                {'detail': 'خطای داخلی در جریان گفت‌وگو رخ داد؛ وضعیت را بررسی کنید و عملیات حساس را خودکار تکرار نکنید.'},
+                ensure_ascii=False) + '\n\n'
+    return StreamingResponse(iterate(), media_type='text/event-stream',
+                             headers={'X-Accel-Buffering': 'no', 'Cache-Control': 'no-store'})
+
+
+def authorized_chat_thread(request: Request, thread_id: str):
+    """Authorize per stored chat mode, including team-scoped live actors."""
+    for mode, actor in actor_candidates(request):
+        try:
+            thread = chat_service.thread_data(actor, thread_id)
+        except PermissionError:
+            continue
+        if thread['mode'] == mode:
+            return actor, thread
+    raise PermissionError('گفت‌وگو در حساب و محیط جاری در دسترس نیست.')
+
+
+@app.get('/api/chat/threads')
+def chat_threads(request: Request):
+    try:
+        principals = actor_candidates(request)
+        combined = {}
+        for mode, actor in principals:
+            for thread in chat_service.list_threads(actor):
+                if thread['mode'] == mode:
+                    combined[thread['id']] = thread
+        result = sorted(combined.values(), key=lambda t: t['updated_at'],
+                        reverse=True)[:40]
+        return {'threads': result}
+    except PermissionError as exc:
+        raise HTTPException(403, str(exc)) from exc
+
+
+@app.get('/api/chat/threads/{thread_id}')
+def chat_thread(request: Request, thread_id: str):
+    try:
+        return authorized_chat_thread(request, thread_id)[1]
+    except PermissionError as exc:
+        raise HTTPException(403, str(exc)) from exc
+
+
+@app.post('/api/chat/approval')
+def chat_approval(request: Request, payload: ChatApprovalRequest):
+    try:
+        actor, thread = authorized_chat_thread(request, payload.thread_id)
+        # Proposal must belong to this exact thread; the model cannot invent approvals.
+        # Only the latest assistant decision can be approved. If the user has
+        # changed topic or received another answer, old cards cannot be used.
+        messages = thread['messages']
+        latest = messages[-1] if messages else None
+        valid = bool(
+            latest and latest['role'] == 'assistant' and
+            latest['ui'].get('type') == 'inspection' and
+            any(p.get('proposal_id') == payload.proposal_id
+                for p in latest['ui'].get('report', {}).get('proposals', [])) and
+            latest['ui'].get('report', {}).get('project') == payload.confirm_project
+        )
+        if not valid:
+            raise PermissionError('این عملیات متعلق به گفت‌وگوی جاری نیست.')
+        # Enforce the proposal's original mode, not just a matching project
+        # or shared access key, before any restart can be submitted.
+        stored = inspect_approval(payload.proposal_id, actor, payload.confirm_project)
+        if stored['mode'] != thread['mode']:
+            raise PermissionError('حالت مجوز با گفت‌وگو مطابقت ندارد')
+        if payload.approved:
+            execution = approve(request, ApproveRequest(
+                proposal_id=payload.proposal_id, confirm_project=payload.confirm_project))
+        else:
+            cancel_approval(payload.proposal_id, actor, payload.confirm_project)
+            audit('approval_cancelled', thread['mode'], payload.confirm_project)
+            execution = None
+        try:
+            return chat_service.resume(payload.thread_id, execution)
+        except Exception:
+            # A successful mutation must never be retried because UI checkpoint failed.
+            outcome = {'type': 'execution', 'result': execution} if execution else {'type': 'notice', 'text': 'عملیات لغو شد.'}
+            chat_service.add_message(payload.thread_id, 'assistant',
+                                     'وضعیت عملیات ثبت شد؛ همگام‌سازی گراف نیازمند بررسی است.', outcome)
+            return {'thread_id': payload.thread_id, 'answer': 'وضعیت عملیات ثبت شد؛ همگام‌سازی گراف نیازمند بررسی است.', 'ui': outcome, 'engine': 'recovery'}
+    except (RuntimeError, LookupError, TimeoutError) as exc:
+        raise HTTPException(409, str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(403, str(exc)) from exc
+)
+
+
+class ChatApprovalRequest(BaseModel):
+    thread_id: str
+    proposal_id: str
+    confirm_project: str
+    approved: bool
+
+
+@app.post('/api/chat/messages')
+def chat_message(request: Request, payload: ChatMessageRequest):
+    actor = credentials(request, payload.mode)
+    try:
+        return chat_service.respond(actor, payload.mode, payload.message,
+                                    payload.thread_id, payload.project, payload.scenario)
+    except (ValueError, PermissionError) as exc:
+        raise HTTPException(403 if isinstance(exc, PermissionError) else 400, str(exc)) from exc
+
+
+@app.post('/api/chat/stream')
+def chat_stream(request: Request, payload: ChatMessageRequest):
+    actor = credentials(request, payload.mode)
+    def iterate():
+        yield 'event: status\ndata: ' + json.dumps({'label': 'در حال تحلیل درخواست و انتخاب ابزار'}) + '\n\n'
+        try:
+            output = chat_service.respond(actor, payload.mode, payload.message,
+                                          payload.thread_id, payload.project, payload.scenario)
+            yield 'event: complete\ndata: ' + json.dumps(output, ensure_ascii=False) + '\n\n'
+        except (ValueError, PermissionError, LiaraError) as exc:
+            yield 'event: error\ndata: ' + json.dumps({'detail': str(exc)}, ensure_ascii=False) + '\n\n'
+        except Exception:
+            yield 'event: error\ndata: ' + json.dumps(
+                {'detail': 'خطای داخلی در جریان گفت‌وگو رخ داد؛ وضعیت را بررسی کنید و عملیات حساس را خودکار تکرار نکنید.'},
+                ensure_ascii=False) + '\n\n'
+    return StreamingResponse(iterate(), media_type='text/event-stream',
+                             headers={'X-Accel-Buffering': 'no', 'Cache-Control': 'no-store'})
+
+
+def authorized_chat_thread(request: Request, thread_id: str):
+    """Authorize per stored chat mode, including team-scoped live actors."""
+    for mode, actor in actor_candidates(request):
+        try:
+            thread = chat_service.thread_data(actor, thread_id)
+        except PermissionError:
+            continue
+        if thread['mode'] == mode:
+            return actor, thread
+    raise PermissionError('گفت‌وگو در حساب و محیط جاری در دسترس نیست.')
+
+
+@app.get('/api/chat/threads')
+def chat_threads(request: Request):
+    try:
+        principals = actor_candidates(request)
+        combined = {}
+        for mode, actor in principals:
+            for thread in chat_service.list_threads(actor):
+                if thread['mode'] == mode:
+                    combined[thread['id']] = thread
+        result = sorted(combined.values(), key=lambda t: t['updated_at'],
+                        reverse=True)[:40]
+        return {'threads': result}
+    except PermissionError as exc:
+        raise HTTPException(403, str(exc)) from exc
+
+
+@app.get('/api/chat/threads/{thread_id}')
+def chat_thread(request: Request, thread_id: str):
+    try:
+        return authorized_chat_thread(request, thread_id)[1]
+    except PermissionError as exc:
+        raise HTTPException(403, str(exc)) from exc
+
+
+@app.post('/api/chat/approval')
+def chat_approval(request: Request, payload: ChatApprovalRequest):
+    try:
+        actor, thread = authorized_chat_thread(request, payload.thread_id)
+        # Proposal must belong to this exact thread; the model cannot invent approvals.
+        # Only the latest assistant decision can be approved. If the user has
+        # changed topic or received another answer, old cards cannot be used.
+        messages = thread['messages']
+        latest = messages[-1] if messages else None
+        valid = bool(
+            latest and latest['role'] == 'assistant' and
+            latest['ui'].get('type') == 'inspection' and
+            any(p.get('proposal_id') == payload.proposal_id
+                for p in latest['ui'].get('report', {}).get('proposals', [])) and
+            latest['ui'].get('report', {}).get('project') == payload.confirm_project
+        )
+        if not valid:
+            raise PermissionError('این عملیات متعلق به گفت‌وگوی جاری نیست.')
+        # Enforce the proposal's original mode, not just a matching project
+        # or shared access key, before any restart can be submitted.
+        stored = inspect_approval(payload.proposal_id, actor, payload.confirm_project)
+        if stored['mode'] != thread['mode']:
+            raise PermissionError('حالت مجوز با گفت‌وگو مطابقت ندارد')
+        if payload.approved:
+            execution = approve(request, ApproveRequest(
+                proposal_id=payload.proposal_id, confirm_project=payload.confirm_project))
+        else:
+            cancel_approval(payload.proposal_id, actor, payload.confirm_project)
+            audit('approval_cancelled', thread['mode'], payload.confirm_project)
+            execution = None
+        try:
+            return chat_service.resume(payload.thread_id, execution)
+        except Exception:
+            # A successful mutation must never be retried because UI checkpoint failed.
+            outcome = {'type': 'execution', 'result': execution} if execution else {'type': 'notice', 'text': 'عملیات لغو شد.'}
+            chat_service.add_message(payload.thread_id, 'assistant',
+                                     'وضعیت عملیات ثبت شد؛ همگام‌سازی گراف نیازمند بررسی است.', outcome)
+            return {'thread_id': payload.thread_id, 'answer': 'وضعیت عملیات ثبت شد؛ همگام‌سازی گراف نیازمند بررسی است.', 'ui': outcome, 'engine': 'recovery'}
+    except (RuntimeError, LookupError, TimeoutError) as exc:
+        raise HTTPException(409, str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(403, str(exc)) from exc

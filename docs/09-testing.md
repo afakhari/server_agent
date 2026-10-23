@@ -51,3 +51,6 @@ Task script: کاربر بدون آموزش (۱) مشکل را تشخیص دهد
 `status, timestamp_UTC, scope=test, redacted request/response IDs, probe outcome, commit_sha, tests_run, actor approval proof`. برای نمایش عمومی token، domain خصوصی/نام کاربر و raw logs سانسور شوند.
 ## ۸. تعریف انتشار
 MVP آماده دمو فقط زمانی که CT/IN/AP/AC/SEC critical tests پاس، P0 end-to-end ثابت، UX failure state روشن، documentation با نسخه code به‌روز و ویدیوی ۵ دقیقه‌ای آماده باشد. اگر live write ناممکن بود، در ارائه صریحاً «mock» باشد و جایگزین حقیقت فنی معرفی نشود.
+
+## PR Conversational Workspace · Offline CI
+شاخه گفت‌وگومحور یک workflow محدود `.github/workflows/conversational-ci.yml` برای `pytest` و build TypeScript دارد؛ این workflow هیچ کلید لیارا یا عملیات زنده‌ای اجرا نمی‌کند. عبور از CI به معنی verify شدن API واقعی لیارا نیست. وضعیت کنونی اجرا باید از Checks در PR خوانده شود. سایر آزمون‌های دستی و live فقط با پروژه آزمایشی مجازند.

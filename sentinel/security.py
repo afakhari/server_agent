@@ -133,3 +133,25 @@ def read_audit(limit: int = 30) -> list[dict]:
     with session() as conn:
         rows = conn.execute('SELECT event,mode,project,at FROM audit ORDER BY id DESC LIMIT ?', (min(limit, 100),)).fetchall()
     return [{'event': e, 'mode': m, 'project': p, 'at': t} for e, m, p, t in rows]
+
+
+def cancel_approval(identifier: str, actor: str, project: str) -> None:
+    """Explicit cancellation consumes a proposal atomically; it cannot be revived."""
+    conn = connection()
+    try:
+        conn.execute('BEGIN IMMEDIATE')
+        row = conn.execute('SELECT actor,project,consumed_at FROM proposals WHERE id=?', (identifier,)).fetchone()
+        if row is None:
+            raise LookupError('مجوز یافت نشد')
+        owner, target, consumed = row
+        if owner != actor or target != project:
+            raise PermissionError('مالک یا پروژه با مجوز مطابقت ندارد')
+        if consumed is not None:
+            raise RuntimeError('این مجوز قبلاً استفاده یا لغو شده است')
+        conn.execute('UPDATE proposals SET consumed_at=? WHERE id=? AND consumed_at IS NULL', (time.time(), identifier))
+        conn.commit()
+    except BaseException:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()

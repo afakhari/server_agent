@@ -29,3 +29,30 @@
 - CLI identity با JSON whoami و API `/v1/me` بررسی می‌شود؛ تیم فعال و تنظیمات team override از بسته رد می‌شود.
 - راهنمای کامل صاحب پروژه در `docs/18-operator-steps-fa.md` قرار دارد.
 - آزمون‌های جدید نوشته شده‌اند؛ هنوز آزمون زنده با حساب لیارا و اجرای مجدد کل تست‌های repository در این تغییر انجام نشده است.
+
+
+## افزوده‌شده در شاخه Conversational Agent · 2026-10-23
+
+- طراحی React/assistant-ui تمام‌صفحه و RTL به `frontend/` اضافه شد؛ requires npm install/build، مرورگر **آزمون نشده**.
+- `sentinel/conversation.py`: SQLite conversation history، context per project، LangGraph conditional workflow، SQLite checkpoint، interrupt برای approval، LangChain intent classifier اختیاری.
+- API گفت‌وگو/فهرست/stream/approval افزوده شد؛ استفاده از policy/one-use approval قبلی حفظ شده است.
+- کارت‌های تشخیص، شواهد، استقرار، تأیید و وضعیت اجرا به frontend اضافه شدند؛ streaming فعلاً رویداد وضعیت و پایان است، نه delta متن.
+- آزمون‌های `tests/test_conversation.py` نوشته شده‌اند؛ **هنوز در محیط ادغام با پکیج‌های LangGraph و Node اجرا نشده‌اند**.
+- حساب واقعی لیارا، قیمت/پلن واقعی، پایش چندمرحله‌ای و release-ready verification هنوز LIVE_UNVERIFIED هستند. محصولات production multi-user و coding agent خارج از این vertical slice هستند.
+
+
+### وضعیت آزمون خودکار شاخه Conversational
+GitHub Actions workflow در PR #26 ایجاد شد. اجرای اولیه در تاریخ 2026-10-23 با نتیجه failure و **بدون هیچ step گزارش‌شده** پایان یافت؛ متن log از رابط GitHub در این نشست در دسترس نبود. بنابراین هیچ نتیجه‌ای درباره موفقیت یا شکست واقعی unit tests / frontend build نمی‌توان گرفت؛ QA همچنان BLOCKED / UNVERIFIED است و باید با دسترسی به runner یا اجرای محلی تکمیل شود.
+
+
+### پیش‌پرواز VPS خصوصی · 2026-10-23
+- Docker multi-stage با non-root runner و حجم داده دائمی افزوده شد.
+- `compose.server.yaml` و Caddy با HTTPS + Basic Auth و عدم publish پورت برنامه افزوده شد.
+- `private-server` profile، startup fail-closed برای secret، DB، LangGraph و frontend build، و deny نوشتن Liara افزوده شد.
+- تست‌های جدید `tests/test_server_deployment.py` نوشته شده‌اند ولی در این نشست اجرای واقعی گزارش نشده است.
+- وضعیت عملیاتی سرور **NOT DEPLOYED** و وضعیت انتشار **NO-GO** تا اثبات build، QA، و آزمون HTTPS واقعی باقی می‌ماند.
+
+ 
+### Intent-first UX افزوده شد، تأیید اجرا باقی است
+
+`sentinel/intent.py` طبقه‌بندی چندبرچسبی و abstain/clarify، `sentinel/discovery.py` خوشه‌بندی آفلاین فقط روی نمونه‌های رضایت‌داده‌شده، `scripts/review_intents.py` ابزار تحلیل آفلاین، `tests/test_intent_experience.py` Golden testهای پیام‌های رایج و خطرناک، و کارت‌های راهنمای دامنه و release در رابط React اضافه شده‌اند. API همچنان read-only default و approval-bound است. **هیچ اجرای موفق جدید برای pytest / frontend build ثبت نشده است.**

@@ -6,6 +6,13 @@ Liara Sentinel is a proposed **evidence-driven deployment and site-reliability a
 
 **Product promise:** understand the project or incident → collect real evidence → propose the safest useful action → require exact human approval for impactful changes → execute through a verified adapter → independently verify the outcome.
 
+## Competition submission and latest brief gap review
+
+- **[SUBMISSION.md](SUBMISSION.md)**: the single competition-facing document covering architecture, Liara API connection, user interaction, limitations, a five-minute demonstration storyboard, and the 300-point evidence matrix.
+- **[docs/24-brief-gap-review.md](docs/24-brief-gap-review.md)**: comparison against the supplied challenge brief/video, implemented improvements and remaining blockers.
+- **[docs/25-end-to-end-scenario-audit.md](docs/25-end-to-end-scenario-audit.md)**: 35 user-to-outcome scenarios, identified systemic failure modes, corrections, tests and outstanding release gates.
+- The new guided first-deploy readiness assessment and Coding Agent handoff are **implemented but not live-verified**. Real Liara actions and the mandatory video remain outstanding.
+
 ## Run the functional prototype
 
 See [RUNNING.md](RUNNING.md) for environment setup, how to run, live-read access, deliberately gated test-only writes and limitations.
@@ -119,3 +126,36 @@ a FastAPI definition that never binds an HTTP port. **Important:** after
 `git pull`, open **a fresh deployment preview**: the source SHA256 changes;
 do not confirm a previously issued approval. Liara live publication remains
 unverified pending the operator's disposable test deployment.
+
+
+## Conversational Agent Workspace (new, branch feature/conversational-agent-langgraph)
+
+A full-screen Persian/RTL React + assistant-ui client and a LangGraph-backed conversation API have been added alongside the previous single-page diagnostic console. The server keeps its existing policy-bound, one-use write approvals and Liara adapters. **This branch is an implementation candidate; neither live Liara writes nor browser builds have been independently verified in this editing environment.**
+
+Quick start after installing Python and Node dependencies:
+
+```bash
+python -m pip install -r requirements.txt
+uvicorn app:app --host 127.0.0.1 --port 8000
+# separate terminal
+cd frontend && npm install && npm run dev
+```
+
+For a single host, run `cd frontend && npm run build`, then restart FastAPI to serve `frontend/dist`. New API endpoints: `/api/chat/messages`, `/api/chat/stream`, `/api/chat/threads`, `/api/chat/threads/{id}`, `/api/chat/approval`.
+
+- [Decision and architecture](docs/19-conversational-architecture.md)
+- [Installation, validation, security and demo runbook](docs/20-conversation-runbook.md)
+
+
+## VPS private staging (NOT public production)
+
+The conversational candidate now includes a single-operator Docker Compose + Caddy HTTPS deployment configuration. It is **fail-closed**: a valid 32+-character operator secret, built frontend, writable persistent SQLite volume, and installed LangGraph are required before startup. Caddy gates both UI and API; live Liara writes and CLI execution stay blocked in this profile. No VPS deployment, full browser build or real Liara verification has been performed in this change.
+
+Runbook: [docs/21-private-server-deployment.md](docs/21-private-server-deployment.md). Compose entry: `compose.server.yaml`. Do not expose port 8000 directly or treat this as a multi-user service. Release status remains **NO-GO until full local tests, frontend build, container smoke and private server access checks are green**.
+
+ 
+## Intent-first UX & offline discovery
+
+Conversational routing now uses `sentinel/intent.py` for multilingual multi-label classification, explainable uncertainty and hard safety guards; `sentinel/discovery.py` performs **offline-only** clustering of explicitly consented unknown intent examples, never a write authorization. Typed chat cards support read-only domain/release history, project selection, action/limitation explanations, expiry of approvals, and detection of truncated SSE responses. Golden and integration tests: `tests/test_intent_experience.py`. Matrix and limitations: [docs/23-user-intent-coverage.md](docs/23-user-intent-coverage.md).
+
+**Verification status:** these new tests and the modified frontend have not been executed on the user's machine in this branch; do not merge the draft PR or publish to a public server until fresh tests and a reproducible frontend build pass.
