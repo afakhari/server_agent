@@ -10,6 +10,7 @@ Liara Sentinel is a proposed **evidence-driven deployment and site-reliability a
 
 - **[SUBMISSION.md](SUBMISSION.md)**: the single competition-facing document covering architecture, Liara API connection, user interaction, limitations, a five-minute demonstration storyboard, and the 300-point evidence matrix.
 - **[docs/24-brief-gap-review.md](docs/24-brief-gap-review.md)**: comparison against the supplied challenge brief/video, implemented improvements and remaining blockers.
+- **[docs/25-end-to-end-scenario-audit.md](docs/25-end-to-end-scenario-audit.md)**: 35 user-to-outcome scenarios, identified systemic failure modes, corrections, tests and outstanding release gates.
 - The new guided first-deploy readiness assessment and Coding Agent handoff are **implemented but not live-verified**. Real Liara actions and the mandatory video remain outstanding.
 
 ## Run the functional prototype
