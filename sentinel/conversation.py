@@ -73,6 +73,8 @@ def open_thread(actor: str, mode: str, thread_id: str | None, project: str | Non
             row = conn.execute("SELECT * FROM chat_threads WHERE id=?", (thread_id,)).fetchone()
             if not row or row["actor"] != actor or row["mode"] != mode:
                 raise PermissionError("این گفت‌وگو در دسترس شما نیست.")
+            if project and row["project"] and project != row["project"]:
+                raise ValueError("پروژه این گفت‌وگو با پروژه انتخاب‌شده متفاوت است. برای پیشگیری از اشتباه، «گفت‌وگوی جدید» را انتخاب کنید.")
             chosen = project or row["project"]
             if chosen:
                 chosen = validate_name(chosen)
