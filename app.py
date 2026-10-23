@@ -495,7 +495,7 @@ class ChatMessageRequest(BaseModel):
     project: str | None = None
     scenario: str = 'transient'
     request_id: str | None = Field(default=None, min_length=16, max_length=128,
-                                   pattern=r'^[A-Za-z0-9_-]+
+                                   pattern=r'^[A-Za-z0-9_-]+$')
 
 class ChatApprovalRequest(BaseModel):
     thread_id: str
